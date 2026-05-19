@@ -404,7 +404,7 @@ app.get('/explorer/:company/:channel', (req, res) => {
 app.get('/api/wa/qr', async (req, res) => {
     try {
         const instanceName = req.query.instance || 'nico_ventas_wa';
-        const apikey = '03d27a0c34fa708178148142d6f5eedc86cd5e3a';
+        const apikey = process.env.AUTHENTICATION_API_KEY || '03d27a0c34fa708178148142d6f5eedc86cd5e3a';
         const EVO_URL = 'http://127.0.0.1:8080';
         
         console.log(`[WA] SOLICITUD DE QR PARA: ${instanceName}`);

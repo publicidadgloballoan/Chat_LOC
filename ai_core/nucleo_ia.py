@@ -17,6 +17,10 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import queue
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
 
 # --- CONFIGURACIÓN ESTRATÉGICA ---
 logging.basicConfig(
@@ -31,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 EVO_URL = "http://127.0.0.1:8080"
-EVO_API_KEY = "03d27a0c34fa708178148142d6f5eedc86cd5e3a"
+EVO_API_KEY = os.getenv("AUTHENTICATION_API_KEY", "03d27a0c34fa708178148142d6f5eedc86cd5e3a")
 EVO_INSTANCE = "chatbot_punto_a"
 TG_URL = "http://127.0.0.1:8082"
 TG_INSTANCE = "colaboratium_ia_bot"
@@ -376,8 +380,18 @@ def init_db():
                   instagram TEXT, facebook TEXT, linkedin TEXT, telegram TEXT,
                   dni TEXT, address TEXT, cbu TEXT, alias TEXT, bank TEXT, branch TEXT,
                   last_channel TEXT, origin TEXT, group_name TEXT, metadata TEXT, 
+                  company_id INTEGER,
                   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                   UNIQUE(phone))''')
+
+    # Migración de columnas faltantes para contacts_agenda
+    try:
+        c.execute("SELECT company_id FROM contacts_agenda LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE contacts_agenda ADD COLUMN company_id INTEGER")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando company_id a contacts_agenda: {e}")
 
     c.execute('''CREATE TABLE IF NOT EXISTS mkt_templates
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, content TEXT, 
@@ -1196,19 +1210,20 @@ def handle_api_data():
                     c.execute("""INSERT INTO contacts_agenda 
                                (name, phone, email, instagram, facebook, linkedin, 
                                 dni, address, cbu, alias, bank, branch,
-                                last_channel, origin, group_name, metadata) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                last_channel, origin, group_name, metadata, company_id) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                ON CONFLICT(phone) DO UPDATE SET 
                                name=excluded.name, email=excluded.email, 
                                instagram=excluded.instagram, facebook=excluded.facebook, linkedin=excluded.linkedin,
                                dni=excluded.dni, address=excluded.address, cbu=excluded.cbu, alias=excluded.alias,
                                bank=excluded.bank, branch=excluded.branch,
-                               group_name=excluded.group_name, metadata=excluded.metadata""", 
+                               group_name=excluded.group_name, metadata=excluded.metadata,
+                               company_id=excluded.company_id""", 
                                (contact.get('name'), contact.get('phone'), contact.get('email'),
                                 contact.get('instagram'), contact.get('facebook'), contact.get('linkedin'),
                                 contact.get('dni'), contact.get('address'), contact.get('cbu'),
                                 contact.get('alias'), contact.get('bank'), contact.get('branch'),
-                                'IMPORT', 'FILE_UPLOAD', group, str(contact.get('metadata'))))
+                                'IMPORT', 'FILE_UPLOAD', group, str(contact.get('metadata')), comp_id))
                 conn.commit()
                 return jsonify({"success": True, "count": len(contacts)})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
@@ -1304,6 +1319,7 @@ def handle_api_data():
 
         if action == 'add_manual_contact':
             try:
+                comp_id = data.get('companyId') or request.args.get('companyId')
                 c.execute("""INSERT INTO contacts_agenda 
                            (name, phone, email, instagram, facebook, linkedin, telegram,
                             dni, address, cbu, alias, bank, branch,
@@ -1315,12 +1331,13 @@ def handle_api_data():
                            linkedin=excluded.linkedin, telegram=excluded.telegram,
                            dni=excluded.dni, address=excluded.address, cbu=excluded.cbu, alias=excluded.alias,
                            bank=excluded.bank, branch=excluded.branch,
-                           group_name=excluded.group_name, metadata=excluded.metadata""", 
+                           group_name=excluded.group_name, metadata=excluded.metadata,
+                           company_id=excluded.company_id""", 
                            (data.get('name'), data.get('phone'), data.get('email'),
                             data.get('instagram'), data.get('facebook'), data.get('linkedin'), data.get('telegram'),
                             data.get('dni'), data.get('address'), data.get('cbu'),
                             data.get('alias'), data.get('bank'), data.get('branch'),
-                            'MANUAL', 'USER_ENTRY', data.get('group'), data.get('meta')))
+                            'MANUAL', 'USER_ENTRY', data.get('group'), data.get('meta'), comp_id))
                 conn.commit()
                 return jsonify({"success": True})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
@@ -1391,6 +1408,11 @@ def handle_api_data():
                             })
                     tmp_conn.close()
                 
+                # Obtener company_id de la campaña
+                c.execute("SELECT company_id FROM mkt_campaigns WHERE id=?", (camp_id,))
+                camp_row = c.fetchone()
+                comp_id = camp_row[0] if camp_row else None
+
                 # Guardar contactos
                 for contact in contacts:
                     trace_id = f"TRC-{uuid.uuid4().hex[:8].upper()}"
@@ -1401,19 +1423,20 @@ def handle_api_data():
                     c.execute("""INSERT INTO contacts_agenda 
                                (name, phone, email, instagram, facebook, linkedin, 
                                 dni, address, cbu, alias, bank, branch,
-                                last_channel, origin, group_name, metadata) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                last_channel, origin, group_name, metadata, company_id) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                ON CONFLICT(phone) DO UPDATE SET 
                                name=excluded.name, email=excluded.email, 
                                instagram=excluded.instagram, facebook=excluded.facebook, linkedin=excluded.linkedin,
                                dni=excluded.dni, address=excluded.address, cbu=excluded.cbu, alias=excluded.alias,
                                bank=excluded.bank, branch=excluded.branch,
-                               group_name=excluded.group_name, metadata=excluded.metadata""", 
+                               group_name=excluded.group_name, metadata=excluded.metadata,
+                               company_id=excluded.company_id""", 
                                (contact.get('name'), contact.get('phone'), contact.get('email'),
                                 contact.get('instagram'), contact.get('facebook'), contact.get('linkedin'),
                                 contact.get('dni'), contact.get('address'), contact.get('cbu'),
                                 contact.get('alias'), contact.get('bank'), contact.get('branch'),
-                                'CAMPAIGN', 'MKT_IMPORT', 'CLIENTES', str(contact.get('metadata'))))
+                                'CAMPAIGN', 'MKT_IMPORT', 'CLIENTES', str(contact.get('metadata')), comp_id))
                 conn.commit()
                 return jsonify({"success": True, "count": len(contacts)})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
@@ -2419,12 +2442,19 @@ def webhook():
 
         # Guardar en Agenda Global
         name = msg_obj.get('pushName', 'Cliente Nuevo')
-        c.execute("""INSERT INTO contacts_agenda (name, phone, last_channel, origin) 
-                   VALUES (?, ?, ?, ?)
+        
+        # Obtener company_id de la conexión para esta instancia
+        c.execute("SELECT company_id FROM connections WHERE instance=?", (inst,))
+        row_conn = c.fetchone()
+        comp_id = row_conn[0] if row_conn else None
+
+        c.execute("""INSERT INTO contacts_agenda (name, phone, last_channel, origin, company_id) 
+                   VALUES (?, ?, ?, ?, ?)
                    ON CONFLICT(phone) DO UPDATE SET 
                    last_channel=excluded.last_channel,
-                   name=CASE WHEN name='Cliente Nuevo' THEN excluded.name ELSE name END""", 
-                   (name, phone, 'WHATSAPP', 'INBOUND_CHAT'))
+                   name=CASE WHEN name='Cliente Nuevo' THEN excluded.name ELSE name END,
+                   company_id=COALESCE(excluded.company_id, contacts_agenda.company_id)""", 
+                   (name, phone, 'WHATSAPP', 'INBOUND_CHAT', comp_id))
         
         conn.commit(); conn.close()
 

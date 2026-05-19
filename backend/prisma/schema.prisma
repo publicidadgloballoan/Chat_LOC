@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -129,11 +129,11 @@ model PricingConfig {
 model CompanyIdentity {
   id          Int     @id @default(autoincrement())
   channelId   Int     @unique @map("channel_id")
-  mission     String? @db.Text
-  vision      String? @db.Text
-  brandManual String? @map("brand_manual") @db.Text
+  mission     String?
+  vision      String?
+  brandManual String? @map("brand_manual")
   voiceTone   String? @map("voice_tone")
-  faqs        String? @db.Text
+  faqs        String?
   channel     Channel @relation(fields: [channelId], references: [id])
 
   @@map("company_identities")
@@ -142,7 +142,7 @@ model CompanyIdentity {
 model LogisticsConfig {
   id             Int     @id @default(autoincrement())
   channelId      Int     @unique @map("channel_id")
-  coverageZones  String? @map("coverage_zones") @db.Text
+  coverageZones  String? @map("coverage_zones")
   deliveryTerms  String? @map("delivery_terms")
   daysAndHours   String? @map("days_and_hours")
   interiorCost   Decimal? @map("interior_cost")

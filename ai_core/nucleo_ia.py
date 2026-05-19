@@ -405,7 +405,19 @@ def init_db():
 
     c.execute('''CREATE TABLE IF NOT EXISTS mkt_templates
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, content TEXT, 
-                  subject TEXT, media_path TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+                  subject TEXT, media_path TEXT, company_id INTEGER,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+
+    # Migraci\u00f3n de columnas faltantes para mkt_templates (compatibilidad con bases de datos previas)
+    for _col_name, _col_def in [('subject', 'TEXT'), ('media_path', 'TEXT'), ('company_id', 'INTEGER')]:
+        try:
+            c.execute(f"SELECT {_col_name} FROM mkt_templates LIMIT 1")
+        except sqlite3.OperationalError:
+            try:
+                c.execute(f"ALTER TABLE mkt_templates ADD COLUMN {_col_name} {_col_def}")
+                logger.info(f" [DB-MIGRATE] Columna {_col_name} agregada a mkt_templates.")
+            except Exception as _e:
+                logger.error(f" [DB-MIGRATE] Error agregando {_col_name} a mkt_templates: {_e}")
 
     c.execute('''CREATE TABLE IF NOT EXISTS mkt_execution_logs
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, campaign_id INTEGER, 
@@ -463,9 +475,7 @@ def init_db():
         except Exception as e:
             logger.error(f" [DB-MIGRATE] Error agregando company_id a contacts_agenda: {e}")
 
-    c.execute('''CREATE TABLE IF NOT EXISTS mkt_templates
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, content TEXT, 
-                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    # mkt_templates ya fue creada y migrada arriba (con company_id, subject, media_path)
 
     c.execute('''CREATE TABLE IF NOT EXISTS companies
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)''')
@@ -583,7 +593,7 @@ def get_company_media_path(company_id, file_name=None):
     base = MEDIA_LIB_DIR
     if company_id:
         try:
-            conn = sqlite3.connect(DB_PATH)
+            conn = sqlite3.connect(DB_PATH, timeout=30)
             c = conn.cursor()
             c.execute("SELECT name FROM companies WHERE id=?", (company_id,))
             row = c.fetchone()
@@ -2264,7 +2274,7 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                     
                     # 11. Pedir autorizacion humana (Ticket A3)
                     try:
-                        conn_tk = sqlite3.connect(DB_PATH)
+                        conn_tk = sqlite3.connect(DB_PATH, timeout=30)
                         c_tk = conn_tk.cursor()
                         sum_ia = get_chat_summary(phone, inst_name)
                         c_tk.execute("INSERT INTO tickets (phone, channel, status, summary, a3, summary_ia) VALUES (?, ?, ?, ?, 1, ?)", 
@@ -2576,9 +2586,8 @@ def get_qr():
     headers = {"apikey": EVO_API_KEY}
     
     try:
-        # Forzar un logout y delete primero para limpiar cualquier sesión fantasma
+        # Forzar un delete primero para limpiar cualquier sesión fantasma
         logger.info(f" [QR-RESET] Solicitud manual de QR. Limpiando instancia {inst}...")
-        requests.delete(f"{EVO_URL}/instance/logout/{inst}", headers=headers, timeout=5)
         requests.delete(f"{EVO_URL}/instance/delete/{inst}", headers=headers, timeout=5)
         time.sleep(2)
 
@@ -2844,7 +2853,7 @@ def mkt_loop():
                                       current_inst if target_channel == 'WA' else TG_INSTANCE, 
                                       channel=target_channel, last_origin='MKT', update_outgoing=True)
 
-                    conn_upd = sqlite3.connect(DB_PATH)
+                    conn_upd = sqlite3.connect(DB_PATH, timeout=30)
                     c_upd = conn_upd.cursor()
                     c_upd.execute("INSERT INTO mkt_execution_logs (campaign_id, contact_name, channel, status, message) VALUES (?, ?, ?, ?, ?)", 
                              (camp_id, name, target_channel, status_db, log_msg))

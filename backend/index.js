@@ -421,9 +421,8 @@ app.get('/api/wa/qr', async (req, res) => {
         
         // 1. Limpiar instancia previa para forzar QR nuevo
         try {
-            await axios.delete(`${EVO_URL}/instance/logout/${instanceName}`, { headers: { apikey }, timeout: 2000 });
-            await axios.delete(`${EVO_URL}/instance/delete/${instanceName}`, { headers: { apikey }, timeout: 2000 });
-            await new Promise(r => setTimeout(r, 1000));
+            await axios.delete(`${EVO_URL}/instance/delete/${instanceName}`, { headers: { apikey }, timeout: 5000 });
+            await new Promise(r => setTimeout(r, 2000));
         } catch (e) { console.log(`[WA] Cleanup info: ${e.message}`); }
 
         // 2. Crear instancia
@@ -456,6 +455,7 @@ app.get('/api/wa/qr', async (req, res) => {
         res.json(qrData);
     } catch (error) {
         console.error('[WA QR ERROR]:', error.message);
+        await reportBackendError(`[QR ERROR] ${error.message}`, error.stack);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1104,5 +1104,53 @@ process.on('unhandledRejection', (reason, promise) => {
     reportBackendError(reason?.message || String(reason), reason?.stack || String(reason));
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Orchestrator running on http://0.0.0.0:${PORT}`));
+async function syncWhatsappInstances() {
+    try {
+        console.log('[SYNC] Sincronizando instancias de WhatsApp con la base de datos...');
+        const apikey = process.env.AUTHENTICATION_API_KEY || '03d27a0c34fa708178148142d6f5eedc86cd5e3a';
+        const EVO_URL = 'http://127.0.0.1:8080';
+
+        // 1. Obtener canales de la BD
+        const dbChannels = await prisma.channel.findMany({
+            where: { platform: 'WHATSAPP' }
+        });
+        const activeNames = new Set(dbChannels.map(c => c.instanceName));
+        console.log(`[SYNC] Canales activos en BD:`, Array.from(activeNames));
+
+        // 2. Obtener instancias en el servicio de WhatsApp
+        const response = await axios.get(`${EVO_URL}/debug/instances`, {
+            headers: { apikey },
+            timeout: 5000
+        });
+
+        const runningInstances = response.data.keys || [];
+        console.log(`[SYNC] Instancias corriendo en servicio WA:`, runningInstances);
+
+        // 3. Eliminar las que no estén en la BD
+        for (const inst of runningInstances) {
+            if (!activeNames.has(inst) && inst !== 'test_qr' && !inst.endsWith('_phone')) {
+                console.log(`[SYNC] Detectada instancia no registrada en la base de datos: ${inst}. Eliminando de la memoria y disco...`);
+                try {
+                    await axios.delete(`${EVO_URL}/instance/delete/${inst}`, {
+                        headers: { apikey },
+                        timeout: 5000
+                    });
+                    console.log(`[SYNC] Instancia ${inst} eliminada con éxito.`);
+                } catch (err) {
+                    console.error(`[SYNC] Error eliminando ${inst}:`, err.message);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[SYNC ERROR]: Falló la sincronización de instancias:', error.message);
+    }
+}
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Orchestrator running on http://0.0.0.0:${PORT}`);
+    // Sincronizar después de 10 segundos de iniciar el servidor
+    setTimeout(syncWhatsappInstances, 10000);
+    // Y cada 5 minutos
+    setInterval(syncWhatsappInstances, 300000);
+});
 

@@ -99,7 +99,11 @@ class BaileysService {
 
       const authDir = path.join(__dirname, 'baileys_auth', instanceName);
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
-      const { version } = await fetchLatestBaileysVersion();
+      let version = [2, 233, 4];
+      try {
+        const verInfo = await fetchLatestBaileysVersion();
+        version = verInfo.version;
+      } catch (_) {}
 
       this.logger.info(`Creating instance ${instanceName} with Baileys ${version}`);
 

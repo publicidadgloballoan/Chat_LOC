@@ -409,7 +409,25 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, channel TEXT, 
                   status TEXT DEFAULT 'open', summary TEXT, a3 INTEGER DEFAULT 0,
                   assigned_to TEXT, priority TEXT DEFAULT 'normal',
-                  metadata TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+                  metadata TEXT, company_id INTEGER, summary_ia TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    
+    # Migración de columnas faltantes para tickets (compatibilidad con bases de datos previas)
+    try:
+        c.execute("SELECT company_id FROM tickets LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE tickets ADD COLUMN company_id INTEGER")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando company_id a tickets: {e}")
+            
+    try:
+        c.execute("SELECT summary_ia FROM tickets LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE tickets ADD COLUMN summary_ia TEXT")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando summary_ia a tickets: {e}")
+
     
     # Insert default rubros if empty
     c.execute("SELECT count(*) FROM rubros")

@@ -311,7 +311,26 @@ def init_db():
     # NUEVAS TABLAS MKT EMISIVO
     c.execute('''CREATE TABLE IF NOT EXISTS mkt_campaigns
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, status TEXT DEFAULT 'active', 
-                  template TEXT, media_path TEXT, delay_seconds INTEGER DEFAULT 30, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+                  template TEXT, media_path TEXT, delay_seconds INTEGER DEFAULT 30, 
+                  metadata TEXT, company_id INTEGER,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+
+    # Migración de columnas faltantes para mkt_campaigns (compatibilidad)
+    try:
+        c.execute("SELECT metadata FROM mkt_campaigns LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE mkt_campaigns ADD COLUMN metadata TEXT")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando metadata a mkt_campaigns: {e}")
+
+    try:
+        c.execute("SELECT company_id FROM mkt_campaigns LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE mkt_campaigns ADD COLUMN company_id INTEGER")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando company_id a mkt_campaigns: {e}")
     
     c.execute('''CREATE TABLE IF NOT EXISTS mkt_contacts
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, campaign_id INTEGER, trace_id TEXT, 

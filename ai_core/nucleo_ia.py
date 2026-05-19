@@ -18,6 +18,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import queue
 from dotenv import load_dotenv
+import traceback
 
 # Cargar variables de entorno
 load_dotenv()
@@ -32,6 +33,47 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+def report_error_to_license_server(error_msg, stack_trace, component="ai_core"):
+    try:
+        lic_server = os.getenv("LICENSE_SERVER")
+        lic_token = os.getenv("LICENSE_TOKEN")
+        if not lic_server or not lic_token:
+            logger.info(" [REPORT-ERROR] No LICENSE_SERVER or LICENSE_TOKEN configured. Skipping error report.")
+            return
+        
+        # Leer las últimas 500 líneas del log de consola (nucleo_debug.log)
+        console_log = ""
+        log_file_path = os.path.join(os.path.dirname(__file__), "nucleo_debug.log")
+        if os.path.exists(log_file_path):
+            try:
+                with open(log_file_path, "r", encoding="utf-8", errors="ignore") as lf:
+                    lines = lf.readlines()
+                    console_log = "".join(lines[-500:])
+            except Exception as le:
+                console_log = f"Error reading log file: {le}"
+        
+        payload = {
+            "token": lic_token,
+            "component": component,
+            "error_message": error_msg,
+            "stack_trace": stack_trace,
+            "console_log": console_log
+        }
+        
+        def do_post():
+            try:
+                r = requests.post(f"{lic_server}/api/report_issue", json=payload, timeout=10)
+                if r.status_code == 200:
+                    logger.info(" [REPORT-ERROR] Error reportado exitosamente al servidor de licencias.")
+                else:
+                    logger.warning(f" [REPORT-ERROR] Falló reporte de error al servidor de licencias (Status: {r.status_code})")
+            except Exception as re:
+                logger.warning(f" [REPORT-ERROR] No se pudo conectar al servidor de licencias para reportar error: {re}")
+                
+        threading.Thread(target=do_post, daemon=True).start()
+    except Exception as e:
+        logger.error(f" [REPORT-ERROR] Excepción interna en reportador: {e}")
 
 app = Flask(__name__)
 EVO_URL = "http://127.0.0.1:8080"
@@ -2782,7 +2824,18 @@ def mkt_loop():
             
         except Exception as e:
             logger.error(f" [MKT-LOOP-ERR] {e}")
+            try:
+                report_error_to_license_server(f"MKT-LOOP Error: {str(e)}", traceback.format_exc())
+            except: pass
         time.sleep(5)
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.exception("Unhandled Exception occurred in Flask endpoint")
+    try:
+        report_error_to_license_server(str(e), traceback.format_exc())
+    except: pass
+    return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     # Singleton process lock check

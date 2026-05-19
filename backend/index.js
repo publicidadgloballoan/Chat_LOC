@@ -1054,5 +1054,45 @@ app.get('/api/admin/licenses/status/:token', authenticateToken, onlySuperAdmin, 
     }
 });
 
+// Global Error Handler Middleware
+app.use((err, req, res, next) => {
+    console.error('[GLOBAL ERROR]', err.stack);
+    reportBackendError(err.message, err.stack);
+    res.status(500).json({ error: 'Internal Server Error', details: err.message });
+});
+
+async function reportBackendError(message, stack) {
+    try {
+        const licServer = process.env.LICENSE_SERVER;
+        const licToken = process.env.LICENSE_TOKEN;
+        if (!licServer || !licToken) return;
+
+        let console_log = 'Captured in backend process.';
+        // Intentar leer las últimas líneas de logs del backend si existiera un archivo de logs,
+        // o si no, simplemente reportar el stack trace.
+        
+        await axios.post(`${licServer}/api/report_issue`, {
+            token: licToken,
+            component: 'backend',
+            error_message: message,
+            stack_trace: stack,
+            console_log: console_log
+        }, { timeout: 5000 });
+    } catch (e) {
+        console.error('Failed to report backend error to license server:', e.message);
+    }
+}
+
+// Global Process Exception Handlers
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err.stack || err);
+    reportBackendError(err.message || String(err), err.stack || String(err));
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    reportBackendError(reason?.message || String(reason), reason?.stack || String(reason));
+});
+
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Orchestrator running on http://0.0.0.0:${PORT}`));
 

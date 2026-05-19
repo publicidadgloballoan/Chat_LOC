@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const BaileysService = require('./baileys');
 
 const app = express();
@@ -182,4 +183,43 @@ app.listen(PORT, '0.0.0.0', async () => {
   } catch (err) {
     console.error('Error during auto-startup:', err.message);
   }
+});
+
+async function reportWaError(message, stack) {
+  try {
+    const licServer = process.env.LICENSE_SERVER;
+    const licToken = process.env.LICENSE_TOKEN;
+    if (!licServer || !licToken) return;
+
+    let console_log = '';
+    const logPath = path.join(__dirname, 'logs_wa.txt');
+    if (fs.existsSync(logPath)) {
+      try {
+        const lines = fs.readFileSync(logPath, 'utf8').split('\n');
+        console_log = lines.slice(-500).join('\n');
+      } catch (le) {
+        console_log = `Error reading log file: ${le.message}`;
+      }
+    }
+
+    await axios.post(`${licServer}/api/report_issue`, {
+      token: licToken,
+      component: 'whatsapp_service',
+      error_message: message,
+      stack_trace: stack,
+      console_log: console_log
+    }, { timeout: 5000 });
+  } catch (e) {
+    console.error('Failed to report WhatsApp service error to license server:', e.message);
+  }
+}
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception in WA Service:', err.stack || err);
+  reportWaError(err.message || String(err), err.stack || String(err));
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection in WA Service at:', promise, 'reason:', reason);
+  reportWaError(reason?.message || String(reason), reason?.stack || String(reason));
 });

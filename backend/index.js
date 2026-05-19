@@ -89,6 +89,16 @@ function isValidCUIT(cuit) {
 // --- ENDPOINTS ---
 
 // 1. ONBOARDING
+app.get('/api/onboarding/status', async (req, res) => {
+    try {
+        const count = await prisma.saaSCompany.count();
+        res.json({ registered: count > 0 });
+    } catch (error) {
+        console.error('Check onboarding status error:', error);
+        res.status(500).json({ error: 'Error checking onboarding status' });
+    }
+});
+
 app.post('/api/onboarding/register', async (req, res) => {
     try {
         const { businessName, taxId, adminName, adminEmail, adminPassword } = req.body;

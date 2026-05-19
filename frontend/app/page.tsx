@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -26,6 +26,26 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const apiHost = window.location.hostname;
+        const response = await axios.get(`http://${apiHost}:4000/api/onboarding/status`);
+        if (response.data.registered) {
+          const token = localStorage.getItem('PICE SaaS_token');
+          if (token) {
+            window.location.href = '/dashboard';
+          } else {
+            window.location.href = '/login';
+          }
+        }
+      } catch (err) {
+        console.error('Error checking onboarding status:', err);
+      }
+    };
+    checkOnboardingStatus();
+  }, []);
 
   const handleRegister = async () => {
     setLoading(true);

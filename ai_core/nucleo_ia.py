@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, g
 import json
 import os
 import requests
@@ -76,6 +76,16 @@ def report_error_to_license_server(error_msg, stack_trace, component="ai_core"):
         logger.error(f" [REPORT-ERROR] Excepción interna en reportador: {e}")
 
 app = Flask(__name__)
+
+@app.teardown_request
+def teardown_db(exception):
+    db_conn = getattr(g, 'db_conn', None)
+    if db_conn is not None:
+        try:
+            db_conn.close()
+            logger.info(" [DB] Conexión SQLite cerrada automáticamente en teardown_request.")
+        except Exception as e:
+            logger.error(f" [DB] Error al cerrar conexión SQLite en teardown_request: {e}")
 EVO_URL = "http://127.0.0.1:8080"
 EVO_API_KEY = os.getenv("AUTHENTICATION_API_KEY", "03d27a0c34fa708178148142d6f5eedc86cd5e3a")
 EVO_INSTANCE = "chatbot_punto_a"
@@ -708,6 +718,7 @@ def get_chat_summary(phone, inst):
 def handle_api_data():
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.execute("PRAGMA busy_timeout = 30000")
+    g.db_conn = conn
     c = conn.cursor()
     data = request.get_json(silent=True) or {}
     action = data.get('action') or request.args.get('action')
@@ -2495,7 +2506,10 @@ def webhook():
         
         # Dedup Persistente
         mid = msg_obj.get('key', {}).get('id')
-        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        conn = sqlite3.connect(DB_PATH, timeout=30)
+        conn.execute("PRAGMA busy_timeout = 30000")
+        g.db_conn = conn
+        c = conn.cursor()
         c.execute("SELECT 1 FROM processed_msgs WHERE msg_id=?", (mid,))
         if c.fetchone(): conn.close(); return "dup", 200
         c.execute("INSERT INTO processed_msgs (msg_id, instance) VALUES (?, ?)", (mid, inst))

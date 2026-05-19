@@ -300,8 +300,17 @@ def init_db():
                  (phone TEXT, instance TEXT, state TEXT, manual INTEGER, name TEXT, channel TEXT, 
                   pending_handoff INTEGER DEFAULT 0, last_summary TEXT, name_confirmed INTEGER DEFAULT 0,
                   last_incoming_at DATETIME, last_outgoing_at DATETIME,
-                  trace_id TEXT,
+                  trace_id TEXT, last_origin TEXT DEFAULT 'BOT',
                   PRIMARY KEY (phone, instance))''')
+
+    # Migración de columnas faltantes para sessions (compatibilidad con bases de datos previas)
+    try:
+        c.execute("SELECT last_origin FROM sessions LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE sessions ADD COLUMN last_origin TEXT DEFAULT 'BOT'")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando last_origin a sessions: {e}")
     
     c.execute('''CREATE TABLE IF NOT EXISTS logs
                  (phone TEXT, instance TEXT, message TEXT, direction TEXT, 

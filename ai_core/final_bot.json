@@ -1,0 +1,86 @@
+{
+  "name": "Bot Maestro Punto A",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "id": "node-webhook",
+      "name": "Webhook",
+      "webhookId": "bot"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama3.2:3b-instruct-q4_K_M', messages: [ { role: 'system', content: 'Sos un asistente de Punto A.' }, { role: 'user', content: $json.body.data.message.conversation || $json.body.text || 'hola' } ], stream: false }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [250, 300],
+      "id": "node-llm",
+      "name": "IA"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whatsapp-service:8080/message/sendText/chatbot_punto_a",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "03d27a0c34fa708178148142d6f5eedc86cd5e3a"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $node['Webhook'].json.body.data.key.remoteJid, text: $json.message.content }) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [500, 300],
+      "id": "node-send",
+      "name": "WhatsApp"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

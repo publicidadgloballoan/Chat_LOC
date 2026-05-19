@@ -1,0 +1,101 @@
+{
+    "Yorkshire Mini": {
+        "macho": "$950.000",
+        "hembra": "$1.250.000",
+        "peso_adulto": "1.8 kg",
+        "caracteristicas": "Ideal para Departamento, familia, Niños"
+    },
+    "Bulldog Francés": {
+        "macho": "$1.250.000",
+        "hembra": "$1.450.000",
+        "edad": "42 días"
+    },
+    "Maltés": {
+        "macho": "$750.000",
+        "hembra": "$950.000",
+        "edad": "44 días"
+    },
+    "Beagle Tricolor Mini": {
+        "precio_efectivo": "$1.250.000",
+        "medida_adulto": "13 pulgadas",
+        "peso_adulto": "7-8 kg"
+    },
+    "Jack Russell": {
+        "precio_efectivo": "$1.250.000",
+        "edad": "43 días"
+    },
+    "Boxer Bayo Atigrado": {
+        "precio_efectivo": "$1.200.000",
+        "edad": "40 días"
+    },
+    "Schnauzer Mini": {
+        "macho": "$1.650.000",
+        "hembra": "$1.975.000",
+        "edad": "44 días"
+    },
+    "Shitzu Mini Bicolor": {
+        "macho": "$600.000",
+        "detalle": "Solo machos bicolor"
+    },
+    "Shitzu Mini": {
+        "macho": "$1.000.000",
+        "hembra": "$1.400.000",
+        "edad": "45 días"
+    },
+    "Pincher": {
+        "macho": "$850.000",
+        "hembra": "$1.050.000",
+        "edad": "44 días"
+    },
+    "American Bully": {
+        "precio_efectivo": "$1.300.000",
+        "edad": "45 días"
+    },
+    "Salchicha Mini": {
+        "macho": "$750.000",
+        "hembra": "$800.000",
+        "colores": "Negro y fuego o Marrón",
+        "edad": "40 días"
+    },
+    "Ovejero Belga": {
+        "precio_efectivo": "$1.250.000",
+        "edad": "44 días"
+    },
+    "Chihuahua": {
+        "macho": "$950.000",
+        "hembra": "$1.250.000",
+        "edad": "40 días"
+    },
+    "Bulldog Inglés": {
+        "precio_efectivo": "$1.800.000",
+        "edad": "42 días"
+    },
+    "Dogo de Burdeos": {
+        "precio_efectivo": "$2.250.000",
+        "edad": "42 días"
+    },
+    "Ovejero Alemán": {
+        "precio_efectivo": "$950.000",
+        "edad": "40 días"
+    },
+    "Caniche Mini Toy Apricot": {
+        "macho": "$550.000",
+        "hembra": "$599.000",
+        "tamano": "22 cm a la cruz",
+        "peso_adulto": "2.5 kg"
+    },
+    "Caniche Mini Toy Blanco": {
+        "precio_efectivo": "$499.999"
+    },
+    "Dogo Argentino": {
+        "precio_efectivo": "$1.050.000",
+        "edad": "42 días"
+    },
+    "Condiciones Generales": {
+        "reserva": "$50.000",
+        "metodo_reserva": "Mercado Pago (martin.3040)",
+        "envio": "Sin cargo a domicilio",
+        "incluye": "Libreta sanitaria, vacunas, desparasitación, certificado genético, 1 mes de obra social gratis",
+        "formas_pago": "Efectivo, Tarjeta (cuotas + IVA), Transferencia (+ IVA)"
+    }
+}

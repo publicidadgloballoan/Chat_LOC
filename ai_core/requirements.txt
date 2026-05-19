@@ -1,0 +1,23 @@
+# Punto A — Dependencias Python
+# Python 3.11 requerido (mejor compatibilidad con PyInstaller 6.x)
+
+# Hardware detection
+psutil==6.1.1
+GPUtil==1.4.0
+
+# GUI
+customtkinter==5.2.2
+Pillow==11.1.0
+
+# Bridge interno (FastAPI + servidor ASGI)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+
+# HTTP client (requests de servicios)
+requests==2.32.3
+httpx==0.28.1
+
+# Testing
+pytest==8.3.4
+pytest-mock==3.14.0

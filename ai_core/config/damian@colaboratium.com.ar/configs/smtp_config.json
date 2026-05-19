@@ -1,0 +1,11 @@
+{
+  "host": "mail.colaboratium.com.ar",
+  "port": 465,
+  "user": "damian@colaboratium.com.ar",
+  "password": "Damian2026$$$",
+  "use_ssl": true,
+  "imap_host": "mail.colaboratium.com.ar",
+  "imap_port": 993,
+  "pop3_host": "mail.colaboratium.com.ar",
+  "pop3_port": 995
+}

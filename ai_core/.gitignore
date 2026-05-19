@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Dependency directories
+node_modules/
+
+# Logs
+*.log
+
+# Databases and sessions
+*.db
+*.db-shm
+*.db-wal
+baileys_auth/
+config/brain_sessions.db*
+
+# Temp files
+*.tmp
+temp/
+tmp/
+
+# Binaries and executables
+*.exe
+*.dll
+*.so
+*.dylib
+ffmpeg*

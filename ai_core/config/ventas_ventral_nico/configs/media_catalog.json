@@ -1,0 +1,86 @@
+{
+    "salchicha": {
+        "photos": [
+            "IMG-20260423-WA0164.jpg",
+            "IMG-20260423-WA0165.jpg",
+            "IMG-20260423-WA0166.jpg",
+            "IMG-20260423-WA0021.jpg"
+        ],
+        "videos": [
+            "VID-20260423-WA0349.mp4",
+            "VID-20260423-WA0350.mp4"
+        ]
+    },
+    "boxer": {
+        "photos": [],
+        "videos": [
+            "VID-20260423-WA0100.mp4",
+            "VID-20260423-WA0101.mp4",
+            "VID-20260423-WA0102.mp4",
+            "VID-20260423-WA0103.mp4",
+            "VID-20260423-WA0104.mp4",
+            "VID-20260423-WA0105.mp4",
+            "VID-20260423-WA0106.mp4",
+            "VID-20260423-WA0107.mp4"
+        ]
+    },
+    "schnauzer": {
+        "photos": [
+            "IMG-20260423-WA0021.jpg"
+        ],
+        "videos": [
+            "VID-20260423-WA0108.mp4",
+            "VID-20260423-WA0109.mp4",
+            "VID-20260423-WA0110.mp4",
+            "VID-20260423-WA0111.mp4"
+        ]
+    },
+    "shitzu": {
+        "photos": [
+            "IMG-20260423-WA0112.jpg"
+        ],
+        "videos": []
+    },
+    "beagle": {
+        "photos": [
+            "IMG-20260423-WA0084.jpg",
+            "IMG-20260423-WA0085.jpg"
+        ],
+        "videos": [
+            "VID-20260423-WA0072.mp4"
+        ]
+    },
+    "bulldog frances": {
+        "photos": [
+            "IMG-20260423-WA0073.jpg",
+            "IMG-20260423-WA0074.jpg"
+        ],
+        "videos": [
+            "VID-20260423-WA0065.mp4"
+        ]
+    },
+    "caniche": {
+        "photos": [
+            "IMG-20260423-WA0205.jpg",
+            "IMG-20260423-WA0206.jpg",
+            "IMG-20260423-WA0207.jpg",
+            "IMG-20260423-WA0208.jpg",
+            "IMG-20260423-WA0209.jpg",
+            "IMG-20260423-WA0210.jpg",
+            "IMG-20260423-WA0021.jpg"
+        ],
+        "videos": [
+            "VID-20260423-WA0259.mp4",
+            "VID-20260423-WA0260.mp4"
+        ]
+    },
+    "yorkshire": {
+        "photos": [
+            "IMG-20260423-WA0078.jpg",
+            "IMG-20260423-WA0079.jpg"
+        ],
+        "videos": [
+            "VID-20260423-WA0077.mp4"
+        ]
+    }
+}

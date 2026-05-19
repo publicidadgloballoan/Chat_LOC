@@ -1,0 +1,73 @@
+🚀 Orchestrator running on http://0.0.0.0:4000
+[2026-04-26T23:12:30.224Z] GET /api/companies
+prisma:info Starting a postgresql pool with 17 connections.
+prisma:query SELECT "public"."companies"."id", "public"."companies"."business_name", "public"."companies"."legal_name", "public"."companies"."tax_id", "public"."companies"."tax_type", "public"."companies"."brand_manual_url", "public"."companies"."created_at" FROM "public"."companies" WHERE 1=1 OFFSET $1
+prisma:query SELECT "public"."channels"."id", "public"."channels"."company_id", "public"."channels"."platform", "public"."channels"."bot_name", "public"."channels"."instance_name", "public"."channels"."config_a1", "public"."channels"."config_a2", "public"."channels"."config_a3", "public"."channels"."debug_mode", "public"."channels"."status", "public"."channels"."created_at" FROM "public"."channels" WHERE "public"."channels"."company_id" IN ($1,$2) OFFSET $3
+[2026-04-26T23:12:30.267Z] GET /api/stats?companyId=1
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."companies"."id" FROM "public"."companies" WHERE 1=1 OFFSET $1) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."channels"."id" FROM "public"."channels" WHERE "public"."channels"."company_id" = $1 OFFSET $2) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."tickets"."id" FROM "public"."tickets" LEFT JOIN "public"."channels" AS "j1" ON ("j1"."id") = ("public"."tickets"."channel_id") WHERE ("j1"."company_id" = $1 AND ("j1"."id" IS NOT NULL)) OFFSET $2) AS "sub"
+[2026-04-26T23:12:30.274Z] GET /api/activity?companyId=1
+[ACTIVITY] Proxying to Nucleo IA for: nico_ventas_wa
+[2026-04-26T23:12:36.660Z] GET /api/stats?companyId=2
+[2026-04-26T23:12:36.661Z] GET /api/activity?companyId=2
+[ACTIVITY] Proxying to Nucleo IA for: nico_ventas_wa
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."companies"."id" FROM "public"."companies" WHERE 1=1 OFFSET $1) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."channels"."id" FROM "public"."channels" WHERE "public"."channels"."company_id" = $1 OFFSET $2) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."tickets"."id" FROM "public"."tickets" LEFT JOIN "public"."channels" AS "j1" ON ("j1"."id") = ("public"."tickets"."channel_id") WHERE ("j1"."company_id" = $1 AND ("j1"."id" IS NOT NULL)) OFFSET $2) AS "sub"
+[2026-04-26T23:12:42.205Z] GET /api/logs
+[LOGS] Intentando leer: C:\RouthLocal\Plataforma_SaaS_IA\ai_core\nucleo_debug.log
+[2026-04-26T23:12:42.210Z] GET /api/wa/instances
+[2026-04-26T23:12:47.205Z] GET /api/logs
+[LOGS] Intentando leer: C:\RouthLocal\Plataforma_SaaS_IA\ai_core\nucleo_debug.log
+[2026-04-26T23:12:47.208Z] GET /api/wa/instances
+[2026-04-26T23:12:52.210Z] GET /api/logs
+[LOGS] Intentando leer: C:\RouthLocal\Plataforma_SaaS_IA\ai_core\nucleo_debug.log
+[2026-04-26T23:12:52.213Z] GET /api/wa/instances
+[2026-04-26T23:12:57.209Z] GET /api/logs
+[LOGS] Intentando leer: C:\RouthLocal\Plataforma_SaaS_IA\ai_core\nucleo_debug.log
+[2026-04-26T23:12:57.212Z] GET /api/wa/instances
+[2026-04-26T23:12:57.701Z] GET /api/wa/qr?instance=colab_pro
+[WA] CHECKING STATUS: colab_pro
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:13:08.484Z] GET /api/wa/qr?instance=colab_pro
+[WA] CHECKING STATUS: colab_pro
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:13:14.260Z] GET /api/stats?companyId=1
+[2026-04-26T23:13:14.260Z] GET /api/activity?companyId=1
+[ACTIVITY] Proxying to Nucleo IA for: nico_ventas_wa
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."companies"."id" FROM "public"."companies" WHERE 1=1 OFFSET $1) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."channels"."id" FROM "public"."channels" WHERE "public"."channels"."company_id" = $1 OFFSET $2) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."tickets"."id" FROM "public"."tickets" LEFT JOIN "public"."channels" AS "j1" ON ("j1"."id") = ("public"."tickets"."channel_id") WHERE ("j1"."company_id" = $1 AND ("j1"."id" IS NOT NULL)) OFFSET $2) AS "sub"
+[2026-04-26T23:13:17.234Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:13:27.779Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:13:37.481Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:13:47.778Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:13:57.484Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:14:07.784Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:14:17.485Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:14:58.786Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:15:58.477Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+[2026-04-26T23:16:58.779Z] GET /api/wa/qr?instance=nico_ventas_wa
+[WA] CHECKING STATUS: nico_ventas_wa
+[WA QR ERROR]: Request failed with status code 401
+^C

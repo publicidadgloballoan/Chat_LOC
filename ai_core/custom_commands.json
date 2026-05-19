@@ -1,0 +1,27 @@
+[
+    {
+        "trigger": "iaon",
+        "action": "Activar IA",
+        "context": "Activa la respuesta automática para el chat actual"
+    },
+    {
+        "trigger": "iaoff",
+        "action": "Desactivar IA",
+        "context": "Apaga la respuesta automática para el chat actual"
+    },
+    {
+        "trigger": "systema",
+        "action": "Status Hardware",
+        "context": "Devuelve CPU, RAM y latencia del motor AMD"
+    },
+    {
+        "trigger": ".flu",
+        "action": "Listado de flujos",
+        "context": "Devuelve el listado de flows disponibles y cual es el activo"
+    },
+    {
+        "trigger": "rag_list",
+        "action": "Listado de archivos RAG",
+        "context": "Devuelve el listado de biblioteca de medios RAG"
+    }
+]

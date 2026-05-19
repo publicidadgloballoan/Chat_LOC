@@ -1,0 +1,86 @@
+{
+  "name": "Bot Maestro Punto A",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "webhookId": "whatsapp"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama3.2:3b-instruct-q4_K_M', messages: [ { role: 'system', content: 'Sos un asistente inteligente de Punto A. Responde de forma amable.' }, { role: 'user', content: $node['Webhook'].json.body.data.message.conversation || 'hola' } ], stream: false }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "node-llm",
+      "name": "Llama 3.2 IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whatsapp-service:8080/message/sendText/chatbot_punto_a",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "03d27a0c34fa708178148142d6f5eedc86cd5e3a"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $node['Webhook'].json.body.data.key.remoteJid, text: $node['Llama 3.2 IA'].json.message.content }) }}"
+      },
+      "id": "node-send",
+      "name": "Enviar Respuesta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [600, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Llama 3.2 IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llama 3.2 IA": {
+      "main": [
+        [
+          {
+            "node": "Enviar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

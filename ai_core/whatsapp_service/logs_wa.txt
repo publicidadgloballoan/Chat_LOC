@@ -1,0 +1,121 @@
+{"level":30,"time":1777245149051,"pid":3452,"hostname":"Server-ADT-ots","msg":"Webhook restored for nico_ventas_wa: http://localhost:5000/webhook"}
+WhatsApp Service (Baileys) running on port 8080
+Auto-starting instance: colab_global_sa
+{"level":30,"time":1777245149052,"pid":3452,"hostname":"Server-ADT-ots","msg":"Webhook restored for colab_global_sa: http://localhost:5000/webhook"}
+{"level":30,"time":1777245149052,"pid":3452,"hostname":"Server-ADT-ots","msg":"Webhook restored for colab_pro: http://localhost:5000/webhook"}
+{"level":30,"time":1777245149054,"pid":3452,"hostname":"Server-ADT-ots","msg":"Loaded 1977 lid->phone mappings from disk"}
+{"level":30,"time":1777245149113,"pid":3452,"hostname":"Server-ADT-ots","msg":"Creating instance colab_global_sa with Baileys 2,3000,1035194821"}
+Auto-starting instance: colab_pro
+{"level":30,"time":1777245149144,"pid":3452,"hostname":"Server-ADT-ots","msg":"Creating instance colab_pro with Baileys 2,3000,1035194821"}
+Auto-starting instance: nico_ventas_canal
+{"level":30,"time":1777245149161,"pid":3452,"hostname":"Server-ADT-ots","msg":"Creating instance nico_ventas_canal with Baileys 2,3000,1035194821"}
+Auto-starting instance: nico_ventas_wa
+{"level":30,"time":1777245149168,"pid":3452,"hostname":"Server-ADT-ots","msg":"Creating instance nico_ventas_wa with Baileys 2,3000,1035194821"}
+{"level":30,"time":1777245149747,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for nico_ventas_canal, count: 1"}
+{"level":30,"time":1777245149840,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for colab_global_sa, count: 1"}
+{"level":30,"time":1777245150082,"pid":3452,"hostname":"Server-ADT-ots","msg":"Connection opened for nico_ventas_wa as 5491173722708"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+{"level":30,"time":1777245150617,"pid":3452,"hostname":"Server-ADT-ots","msg":"Connection opened for colab_pro as 5491124737437"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async SessionCipher.decryptWithSessions (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:147:29)
+    at async 242352203538468.0 [as awaitable] (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\session_cipher.js:171:28)
+    at async _asyncQueueExecutor (C:\RouthLocal\Plataforma_SaaS_IA\ai_core\whatsapp_service\node_modules\libsignal\src\queue_job.js:20:29)
+Closing open session in favor of incoming prekey bundle
+Closing session: SessionEntry {
+  _chains: {
+    BVfqMq50jpfziZYfmSoLgIBxcEIUZ1b0DwKuEZjwXjUP: { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BdsLVNNeLn7mTRNdaUfUGvDZN9zzNNU+hlKBwYIk01Ir': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 419111151,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 db 0b 54 d3 5e 2e 7e e6 4d 13 5d 69 47 d4 1a f0 d9 37 dc f3 34 d5 3e 86 52 81 c1 82 24 d3 52 2b>,
+      privKey: <Buffer c0 d5 f5 dd bd 1c 33 c8 1c 54 c0 b3 09 fa ca 96 52 e1 a7 05 5d db 7a bd 0c 97 c3 6c 57 45 c8 73>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 57 ea 32 ae 74 8e 97 f3 89 96 1f 99 2a 0b 80 80 71 70 42 14 67 56 f4 0f 02 ae 11 98 f0 5e 35 0f>,
+    previousCounter: 0,
+    rootKey: <Buffer 5b 18 e5 78 92 74 15 f1 00 8c 54 17 d0 43 ac 4c f7 7f 80 a8 4e db 5e 37 2f 8c df 48 d4 c8 7f cb>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 1f 61 21 39 8c 73 5d b5 3f aa ff ba 3c 4a 15 df 53 6d 5f 8f b1 15 dd a6 71 d5 18 2d 4b f3 ec 0c>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1777242638599,
+    created: 1777242638599,
+    remoteIdentityKey: <Buffer 05 03 16 d2 23 8b 1a cc 1e 8f 0a 1d 5e bd 19 7a 15 27 0d 2f f8 1f 45 10 87 c6 c5 25 0e c1 7d 96 2a>
+  }
+}
+{"level":30,"time":1777245157017,"pid":3452,"hostname":"Server-ADT-ots","msg":"Resolved @lid 242352203538468@lid -> 5491136822400@s.whatsapp.net"}
+{"level":30,"time":1777245157017,"pid":3452,"hostname":"Server-ADT-ots","msg":"Message received from 5491136822400@s.whatsapp.net: Que es colaboratium?"}
+{"level":30,"time":1777245157040,"pid":3452,"hostname":"Server-ADT-ots","msg":"Message forwarded to webhook: http://localhost:5000/webhook"}
+{"level":30,"time":1777245157924,"pid":3452,"hostname":"Server-ADT-ots","msg":"Resolved @lid 242352203538468@lid -> 5491136822400@s.whatsapp.net"}
+{"level":30,"time":1777245157924,"pid":3452,"hostname":"Server-ADT-ots","msg":"Message received from 5491136822400@s.whatsapp.net: Que es colaboratium?"}
+{"level":30,"time":1777245157930,"pid":3452,"hostname":"Server-ADT-ots","msg":"Message forwarded to webhook: http://localhost:5000/webhook"}
+{"level":30,"time":1777245194764,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for nico_ventas_canal, count: 2"}
+{"level":30,"time":1777245194848,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for colab_global_sa, count: 2"}
+{"level":30,"time":1777245239769,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for nico_ventas_canal, count: 3"}
+{"level":30,"time":1777245239861,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for colab_global_sa, count: 3"}
+{"level":30,"time":1777245284778,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for nico_ventas_canal, count: 4"}
+{"level":30,"time":1777245284871,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for colab_global_sa, count: 4"}
+{"level":30,"time":1777245329799,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for nico_ventas_canal, count: 5"}
+{"level":30,"time":1777245329889,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for colab_global_sa, count: 5"}
+{"level":30,"time":1777245359655,"pid":3452,"hostname":"Server-ADT-ots","msg":"Connection closed for nico_ventas_canal, reconnect: true"}
+{"level":30,"time":1777245359715,"pid":3452,"hostname":"Server-ADT-ots","msg":"Connection closed for colab_global_sa, reconnect: true"}
+{"level":30,"time":1777245362670,"pid":3452,"hostname":"Server-ADT-ots","msg":"Instance nico_ventas_canal already exists, cleaning up..."}
+{"level":30,"time":1777245362698,"pid":3452,"hostname":"Server-ADT-ots","msg":"Creating instance nico_ventas_canal with Baileys 2,3000,1035194821"}
+{"level":30,"time":1777245362715,"pid":3452,"hostname":"Server-ADT-ots","msg":"Instance colab_global_sa already exists, cleaning up..."}
+{"level":30,"time":1777245362727,"pid":3452,"hostname":"Server-ADT-ots","msg":"Creating instance colab_global_sa with Baileys 2,3000,1035194821"}
+{"level":30,"time":1777245363387,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for colab_global_sa, count: 1"}
+{"level":30,"time":1777245363496,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for nico_ventas_canal, count: 1"}
+{"level":30,"time":1777245408391,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for colab_global_sa, count: 2"}
+{"level":30,"time":1777245408513,"pid":3452,"hostname":"Server-ADT-ots","msg":"QR code generated for nico_ventas_canal, count: 2"}
+^C

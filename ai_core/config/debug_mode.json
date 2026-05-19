@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "authorized_phones": [
+    {
+      "phone": "5491136822400",
+      "alias": "Damian Debuguer"
+    },
+    {
+      "phone": "5491124733417",
+      "alias": "Tomas Debuguer"
+    }
+  ]
+}

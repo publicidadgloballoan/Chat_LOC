@@ -1,0 +1,30 @@
+{
+    "business_name": "Nico Ventas",
+    "delivery_enabled": true,
+    "instrucciones_ia": "Pide y valida los datos.",
+    "location": "AMBA, Argentina",
+    "payment_methods": [
+        "Efectivo",
+        "Transferencia",
+        "Tarjeta"
+    ],
+    "templates": [
+        {
+            "nombre": "Email",
+            "tipo": "Email"
+        },
+        {
+            "nombre": "Nombre y apellido",
+            "tipo": "Texto"
+        },
+        {
+            "nombre": "dni",
+            "tipo": "Número"
+        },
+        {
+            "nombre": "telefono",
+            "tipo": "Teléfono"
+        }
+    ],
+    "working_hours": "Lunes a Viernes 09:00 - 18:00"
+}

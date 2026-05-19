@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: saas_antigravity_db
+    restart: always
+    environment:
+      POSTGRES_DB: saas_antigravity
+      POSTGRES_USER: admin_antigravity
+      POSTGRES_PASSWORD: cebdef04370d542a7e7d70827ce798cb
+    ports:
+      - "5432:5432"
+    volumes:
+      - saas_db_data:/var/lib/postgresql/data
+
+  # El backend orquestador (Node.js) se encargará del Onboarding y Gestión
+  backend-orchestrator:
+    build: 
+      context: ./backend
+    container_name: saas_backend
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://admin_antigravity:cebdef04370d542a7e7d70827ce798cb@postgres:5432/saas_antigravity
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # El nucleo de IA (Python) se encargará del RAG y Ollama
+  ai-core:
+    build:
+      context: ./ai_core
+    container_name: saas_ai_core
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+      DB_URL: postgresql://admin_antigravity:cebdef04370d542a7e7d70827ce798cb@postgres:5432/saas_antigravity
+    ports:
+      - "5000:5000"
+
+volumes:
+  saas_db_data:

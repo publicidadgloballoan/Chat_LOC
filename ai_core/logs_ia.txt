@@ -1,0 +1,28 @@
+2026-04-26 20:10:00,508 [INFO]  [DB] Base de datos limpia y lista con arquitectura de Silos.
+ * Serving Flask app 'nucleo_ia'
+ * Debug mode: off
+2026-04-26 20:10:01,774 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.163:5000
+2026-04-26 20:10:01,774 [INFO] [33mPress CTRL+C to quit[0m
+2026-04-26 20:12:26,919 [INFO]  [DB] Base de datos limpia y lista con arquitectura de Silos.
+ * Serving Flask app 'nucleo_ia'
+ * Debug mode: off
+2026-04-26 20:12:28,184 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.163:5000
+2026-04-26 20:12:28,185 [INFO] [33mPress CTRL+C to quit[0m
+2026-04-26 20:12:30,315 [INFO] 127.0.0.1 - - [26/Apr/2026 20:12:30] "GET /api/data?instance=nico_ventas_wa HTTP/1.1" 200 -
+2026-04-26 20:12:36,687 [INFO] 127.0.0.1 - - [26/Apr/2026 20:12:36] "GET /api/data?instance=nico_ventas_wa HTTP/1.1" 200 -
+2026-04-26 20:12:37,030 [INFO]  [WEBHOOK] Recibido de 5491136822400 en instancia colab_pro: Que es colaboratium?...
+2026-04-26 20:12:37,038 [INFO]  [WEBHOOK] Lanzando hilo de proceso para 5491136822400...
+2026-04-26 20:12:37,039 [INFO] 127.0.0.1 - - [26/Apr/2026 20:12:37] "POST /webhook HTTP/1.1" 200 -
+2026-04-26 20:12:37,040 [INFO]  [PROC] Iniciando proceso para 5491136822400 en colab_pro. State: MENU, Manual: 0
+2026-04-26 20:12:37,040 [INFO]  [PROC] Config A1 cargada para colab_pro
+2026-04-26 20:12:37,041 [INFO]  [PROC] Ejecutando Flujo: ['A1_MENU', 'HUMAN_HUB', 'NAME_REG', 'IA_A2_A3']
+2026-04-26 20:12:37,045 [INFO]  [EVO-SEND] Enviando a 5491136822400@s.whatsapp.net via colab_pro: ¡Hola! Soy el asistente virtual de Colaboratium. 
+...
+2026-04-26 20:12:37,930 [INFO] 127.0.0.1 - - [26/Apr/2026 20:12:37] "POST /webhook HTTP/1.1" 200 -
+2026-04-26 20:13:14,268 [INFO] 127.0.0.1 - - [26/Apr/2026 20:13:14] "GET /api/data?instance=nico_ventas_wa HTTP/1.1" 200 -

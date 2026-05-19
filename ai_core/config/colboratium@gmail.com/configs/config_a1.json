@@ -1,0 +1,33 @@
+{
+    "ask_name": true,
+    "ask_name_message": "¡Hola! Gracias por comunicarte con Colaboratium. Para atenderte mejor, ¿me podrías decir tu nombre?",
+    "confirm_name_message": "Gracias {nombre}, ¿es correcto? (SI/NO)",
+    "ia_off_flag": "#iano#",
+    "ia_on_flag": "#iasi#",
+    "opciones_menu": [
+        {
+            "nombre": "Quiero Invertir",
+            "numero": "1",
+            "respuesta": "¡Excelente! En Colaboratium podés invertir en créditos P2P con rendimientos superiores al mercado. Contame, ¿cuánto te gustaría invertir?"
+        },
+        {
+            "nombre": "Necesito un Crédito",
+            "numero": "2",
+            "respuesta": "Colaboratium te conecta con inversores para obtener créditos a mejores tasas. ¿Qué monto necesitás?"
+        },
+        {
+            "nombre": "Quiero ser Consultor Partner",
+            "numero": "3",
+            "respuesta": "Buscamos consultores financieros externos. Te cuento sobre nuestro programa de partners y comisiones."
+        },
+        {
+            "nombre": "Soporte",
+            "numero": "9",
+            "respuesta": "Contactando con un asesor humano..."
+        }
+    ],
+    "saludo_inicial": "¡Hola! Soy el asistente virtual de Colaboratium, la primera plataforma P2P de créditos entre particulares de Argentina. 🤝",
+    "empresa": "Colaboratium",
+    "nombre_agente": "Asistente Colaboratium",
+    "tono": "Profesional y confiable"
+}

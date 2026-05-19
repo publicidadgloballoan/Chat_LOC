@@ -1,0 +1,58 @@
+{
+  "name": "Bot Maestro",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "options": {}
+      },
+      "id": "a1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "rescate"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whatsapp-service:8080/message/sendText/chatbot_punto_a",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "03d27a0c34fa708178148142d6f5eedc86cd5e3a"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $node[\"Webhook\"].json.body.data.key.remoteJid, text: \"🤖 BOT PUREBA OK: He recibido tu mensaje: \" + ($node[\"Webhook\"].json.body.data.message.conversation || \"?\") }) }}"
+      },
+      "id": "a2",
+      "name": "Respuesta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

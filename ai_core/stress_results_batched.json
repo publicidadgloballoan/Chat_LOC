@@ -1,0 +1,15 @@
+{
+    "conversaciones_totales": 1000,
+    "tamano_rafaga": 100,
+    "duracion_total_seg": 159.39,
+    "pico_ram_mb": 14842.67,
+    "pico_cpu_porcentaje": 32.5,
+    "lectura_disco_mb": 28.833,
+    "escritura_disco_mb": 370.7441,
+    "red_enviado_mb": 2.5229,
+    "red_recibido_mb": 1.4934,
+    "exitos": 969,
+    "errores": 31,
+    "db_size_kb": 880.0,
+    "rag_est_mem_kb": 2000
+}

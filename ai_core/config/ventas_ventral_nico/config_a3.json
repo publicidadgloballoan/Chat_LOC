@@ -1,0 +1,46 @@
+{
+    "business_name": "Nico Ventas",
+    "delivery_enabled": true,
+    "instrucciones_ia": "Pide los datos de entrega detallados: Nombre, CUIL, Dirección (con entre calles), Localidad, Teléfono y Forma de pago.",
+    "location": "Buenos Aires, Argentina",
+    "payment_methods": [
+        "Efectivo",
+        "Transferencia",
+        "Tarjeta"
+    ],
+    "templates": [
+        {
+            "nombre": "Nombre y Apellido",
+            "tipo": "Texto"
+        },
+        {
+            "nombre": "CUIL/CUIT",
+            "tipo": "Texto"
+        },
+        {
+            "nombre": "Dirección y entre calles",
+            "tipo": "Texto"
+        },
+        {
+            "nombre": "Localidad",
+            "tipo": "Texto"
+        },
+        {
+            "nombre": "Teléfono",
+            "tipo": "Teléfono"
+        },
+        {
+            "nombre": "Forma de pago al recibir",
+            "tipo": "Texto"
+        },
+        {
+            "nombre": "Raza elegida",
+            "tipo": "Texto"
+        },
+        {
+            "nombre": "Sexo de la mascota",
+            "tipo": "Texto"
+        }
+    ],
+    "working_hours": "Lunes a Domingo 09:00 - 21:00"
+}

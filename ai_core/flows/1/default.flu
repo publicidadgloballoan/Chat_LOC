@@ -1,0 +1,107 @@
+{
+  "name": "default",
+  "nodes": [
+    {
+      "id": "node_trigger",
+      "type": "webhook",
+      "name": "Trigger Webhook",
+      "description": "Punto de inicio WA/IG/TG",
+      "position": {
+        "x": 50,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_identity",
+      "type": "identity",
+      "name": "Registro Identidad (A1)",
+      "description": "Solicita y confirma nombre",
+      "position": {
+        "x": 301.1428571404241,
+        "y": 22.85714323423346
+      }
+    },
+    {
+      "id": "node_buttons",
+      "type": "buttons",
+      "name": "Botonera A1",
+      "description": "Menú determinístico",
+      "position": {
+        "x": 508.85714294472496,
+        "y": 234.28571421272895
+      }
+    },
+    {
+      "id": "node_brain",
+      "type": "rag",
+      "name": "Procesador A2 (Ollama)",
+      "description": "Análisis de consulta dinámica",
+      "position": {
+        "x": 762.2857143659978,
+        "y": 43.42857176187087
+      }
+    },
+    {
+      "id": "node_ticket",
+      "type": "ticket",
+      "name": "Generador Ticket A3",
+      "description": "Apertura automática de caso",
+      "position": {
+        "x": 961.771429282403,
+        "y": 250.74285675146143
+      }
+    },
+    {
+      "id": "node_1777391970935",
+      "type": "approval",
+      "name": "APPROVAL",
+      "description": "Aprobacion Humana",
+      "position": {
+        "x": 1136.9142806020059,
+        "y": 24.00000207424182
+      }
+    },
+    {
+      "id": "node_1777392025211",
+      "type": "ai_branch",
+      "name": "AI_BRANCH",
+      "description": "Módulo de ai_branch",
+      "position": {
+        "x": 1323.1999881696693,
+        "y": 263.99999763965627
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "node_trigger",
+      "target": "node_identity"
+    },
+    {
+      "id": "e2",
+      "source": "node_identity",
+      "target": "node_buttons"
+    },
+    {
+      "id": "e3",
+      "source": "node_buttons",
+      "target": "node_brain"
+    },
+    {
+      "id": "e4",
+      "source": "node_brain",
+      "target": "node_ticket"
+    },
+    {
+      "id": "edge_1777391985536",
+      "source": "node_ticket",
+      "target": "node_1777391970935"
+    },
+    {
+      "id": "edge_1777392066579",
+      "source": "node_1777391970935",
+      "target": "node_1777392025211"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+    "inbound_total": 1000,
+    "outbound_total": 1000,
+    "pico_ram_mb": 15997.54,
+    "pico_cpu_porcentaje": 42.8,
+    "escritura_disco_mb": 334.59,
+    "red_recibido_mb": 0.66,
+    "duracion_total_seg": 116.16
+}

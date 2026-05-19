@@ -1,0 +1,14 @@
+{
+    "conversaciones_simultaneas": 1000,
+    "duracion_total_seg": 78.74,
+    "pico_ram_mb": 15238.88,
+    "pico_cpu_porcentaje": 49.5,
+    "lectura_disco_mb": 92.0439,
+    "escritura_disco_mb": 452.3101,
+    "red_enviado_mb": 2.0232,
+    "red_recibido_mb": 34.0817,
+    "exitos": 354,
+    "errores": 646,
+    "db_size_kb": 400.0,
+    "rag_est_mem_kb": 2000
+}

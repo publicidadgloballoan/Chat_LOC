@@ -1,0 +1,317 @@
+=== INSTANCIA: ig_global | EMPRESA: Nuestra Empresa | KNOWLEDGE: 94850 chars ===
+
+ERES Asistente, EL ASISTENTE VIRTUAL OFICIAL DE Nuestra Empresa.
+TU TONO DEBE SER: Amable.
+
+--- REGLAS DE ORO (ESTRICTAS) ---
+1. SOLO respondés sobre temas de Nuestra Empresa. Todo lo que digas debe basarse en el CONTEXTO CORPORATIVO de abajo.
+2. SINÓNIMOS: 'Costos', 'gastos', 'fees', 'porcentajes', 'cuánto cobran' = COMISIONES.
+3. DATOS PRECISOS: Cita las cifras exactas del contexto.
+4. Si realmente NO hay info en el contexto, respondé: #HUMAN#
+5. EJEMPLO:
+   Usuario: ¿Qué comisión pagan?
+   IA: En Nuestra Empresa, las comisiones varían por plazo: 12 meses (6%), 6 meses (5%) y 3 meses (4%). Además, hay un 3% por asignación.
+
+CONTEXTO CORPORATIVO EXCLUSIVO (RAG):
+
+--- CONOCIMIENTO HISTÓRICO / CHATS (consolidated_knowledge.md) ---
+--- CONTENIDO DE Colaboratium Manual de Marca.pdf ---
+
+COLABORATIUM
+LOGOTIPO
+IMAGOTIPO
+ISOLOGO
+COLABORATIUM
+COLABORATIUM
+LOGOTIPO
+IMAGOTIPO
+ISOLOGO
+COLABORATIUM
+COLABORATIUM
+R:162   G:132   B:068
+C:35 M:44 Y:95  K:11
+#A28444
+R:254   G:254   B:254
+C:00 M:00 Y:00  K:00
+#FEFEFE
+R:032   G:030   B:030
+C1:00 M:100 Y:100  K:100
+#201E1E
+COLABORATIUM
+COLABORATIUM
+COLABORATIUM
+COLABORATIUM
+COLABORATIUM
+COLABORATIUM
+Trajan Pro Bold
+ABCDEFGHIJKLMN
+OPQRSTUVWXYZ
+abcdefghijklmn
+opqrsstuvwxyz
+x2
+x3
+x16
+x19
+COLABORATIUM
+
+
+--- CONTENIDO DE Presentación - Plan Comercial final.pdf ---
+
+BUSINESS DEVELOPMENT
+MANAGER
+CEO:  Lic. Damian Feuermann
+Que es
+colaboratium
+Colaboratium es la primer
+plataforma de Creditos entre
+particulares. (P2P)
+Apuntamos a que las personas colaboren entre si
+con el fin de conseguir mejores condiciones que las
+del mercado.
+Como es el proceso:
+Es digital a través de nuestra
+plataforma, la cual muestra con
+formato tipo “Marketplace” las
+solicitudes de préstamos de los
+particulares, y el inversor puede
+decidir a quién prestar o activar el
+modo automático con la aplicación
+de IA para la óptima asignación de
+fondos. Con 3 perfiles basados en
+conocimiento y riesgo:
+Principiante
+Intermedio 
+Avanzado
+Atomización de riesgo
+Al momento que el inversor opta por la
+asignación automática de créditos, entre
+otros análisis, la IA va a hacer una
+asignación “atomizada” de créditos. Esto
+significa que la inversión se dividirá en
+pequeñas partes al momento de asignarse
+los créditos. Por ejemplo, Juan pide
+$100.000 y el sistema le asignará el dinero
+de 20 inversores diferentes. Con esto se
+evita que solo Pedro le preste a Juan los
+$100.000 y el riesgo recaiga en un solo
+pagador.
+Basico: 
+La asignacion 
+es 100% automatica
+Intermedio:
+ La ia hara algunas
+ preguntas 
+antes de asignar
+Avanzado:
+Para invesores expertos la ia 
+pregunta y presenta plan 
+de asignacion
+Scoring de Particulares
+Evaluamos a los tomadores de
+créditos con las principales empresas
+del rubro, como Veraz y Nosis.
+Además de las propias herramientas
+que nos brinda el Banco Central.
+Por ejemplo: del 100% de los pedidos de
+préstamos, se hace un primer filtrado en el cual
+solo precalifican entre el 10 y el 15% de los
+solicitantes. Luego de eso y de completar el análisis
+de riesgo, se terminan otorgando créditos solo al
+5% en promedio de los solicitantes.
+Motor de
+Decisión
+Claro y
+Confiable
+Evaluación Rigurosa
+Evaluamos el riesgo crediticio para
+minimizar posibles pérdidas.
+El Motor basado en IA
+La plataforma permite la selección de
+perfiles y reducir al máximo la
+incobrabilidad.
+Licencia BCRA
+La garantía de transparencia y
+confianza en Colaboratium
+Colaboratium cuenta con la licencia oficial otorgada por el Banco
+Central de la República Argentina. Esta acreditación no solo asegura
+la transparencia en nuestras operaciones, sino que también refuerza
+nuestro compromiso con el cumplimiento normativo, generando
+confianza tanto en inversores como en tomadores de créditos.
+Obligación de
+Presentación
+Mensual a
+BCRA.
+Control y Cumplimiento
+Aseguramos transparencia y compromiso
+con la regulación vigente.
+Bancos Sponsor: 
+1-Bind
+2-Coinag
+Aval Bancario
+Proyecto aprobado por bancos de renombre que respaldan.
+Los departamentos Legales de ambas instituciones han aprobado la operatoria de
+nuestra plataforma.
+Operación
+Bancarizada
+Seguridad Y transparencia total
+en la gestión financiera de
+Colaboratium
+Todas las operaciones de Colaboratium se realizan
+mediante canales bancarios oficiales, asegurando un
+proceso transparente y seguro. Esto no solo garantiza el
+cumplimiento normativo, sino que también proporciona
+tranquilidad tanto a inversores como a tomadores,
+asegurando la justificación del origen de fondos para
+montos elevados.
+Colaboratium
+TOMADOR
+INVERSOR
+Motor de decisiones
+Comisión más
+rendimiento
+Dinámica financiera transparente
+Inversor
+Contribuye con fondos para
+préstamos
+Tomador
+Recibe fondos para proyectos
+específicos
+Colaboratium
+Plataforma que gestiona el flujo
+financiero
+Transparencia
+Mantenemos claridad en cada
+transacción
+Colaboratium no administra fondos de
+terceros
+Inversor
+deposita los  fondos en su
+ propio CVU
+Tomador
+Recibe fondos en el
+CBU/CVU a su Nombre 
+Colaboratium
+Recibe SOLO los pagos de
+sus comisiones en nuestra
+CVU
+Gestión de
+Morosidad
+Automatizada
+Recordatorios Automatizados
+Sistema eficiente que mejora la gestión de cobros.
+Esquema de cobro de cuotas
+1 día hábil antes del vencimiento se le
+notificará mediante nuestro bot al tomador
+sobre el débito:
+En caso de falta de fondos del primer
+intento, se realizará automáticamente 2
+intentos más, uno a las 48 horas y otro a las
+96 horas. También informados mediante el
+bot.
+En caso de no ser satisfactorio ninguno de
+los intentos de cobro, se comenzará de
+manera automática la gestión de cobranza
+mediante el bot con reclamos cada 72
+h
+Gestión legal de la cobranza
+Legales
+Cuando se agotaron las instancias
+del Bot, se deriva
+automáticamente a nuestros
+estudios legales partners. Con
+esto se intentará llegar a acuerdos
+extrajudiciales de rápida
+resolución.
+Comisiones
+Con las Asignaciones de creditos:
+1% del valor total asignado
+Con EL COBRO DE CUOTAS se agrega:
+12 meses comisión del 4%
+6 meses comisión del 2%
+3 meses comisión del 1%
+Cuando el cliente haga reinversión, el sistema
+automáticamente devengará las comisiones de la
+misma manera.
+En caso de incobrabilidad, estas impactarán en la
+proporción correspondiente al saldo pendiente de
+comisión.
+Ejemplos
+Comparación clara con cifras y beneficios atractivos
+Cómo se cobran las comisiones
+**gestion de cobranza recupera el 90% en la mayoria de los casos.**
+Confianza,
+Crecimiento y
+Oportunidad
+Únete a nosotros
+Transformemos juntos el mercado financiero y crezcamos.
+
+
+--- CONTENIDO DE candidatos_exportados.xlsx - Sheet1.csv (TABULAR) ---
+
+                                               Nombre                               Email        DNI           Telefono Edad                                  Zona                                                            Rol                                                                                                                                    Perfil Profesional                                                                                                                                                                 URL
+0                                 Damian YO Feuermann                   damduff@gmail.com   28202286      54-1136822400   46                                  caba                                                        gerente                                                                                                                                                   NaN                                                                                                                                                                 NaN
+1                                   Jacqueline Biasca          jacquelinebiasca@gmail.com   31951169      54-1144022924   40             Buenos Aires-GBA / Olivos                                              Asesora comercial  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=B4D1051BEDE2BEC5F003EE19BB6AA99E&cf=469814F59E4D6F04
+2                                 Rocio ayelen Cortez         cortezrocioayelen@gmail.com   37848031     54-01151625762   32          Buenos Aires / Gral. Pacheco                                          Administradora ventas  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=6E1C758A86834695A4406E6B23CF3498&cf=469814F59E4D6F04
+3                         Matías Ariel Ramírez Bargas  matiasramirezarielbargas@gmail.com   43248941      54-1138939298   25              Neto/Mensual $ 20,000.00                                           OBJETIVO PROFESIONAL  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=CE9B41433F803C04E0D602B7A2076401&cf=469814F59E4D6F04
+4                                    Mariano Waismann           marianowaismann@gmail.com   30212222      54-1169795567   42        Capital Federal / Villa Crespo                                                      ejecutivo  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=69FCEC28BCAA66EF8F244C009839F856&cf=469814F59E4D6F04
+5                                       Agustín Tossi             tossiagustin7@gmail.com   42934761      54-1161121871   25             Buenos Aires-GBA / Olivos                                                     Estudiante  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=2204145A2A857DEB347BF56FE597534A&cf=469814F59E4D6F04
+6                                  Santiago Cosentino        cosentinosantiago2@gmail.com   46961765     54-91160229970   20         Buenos Aires-GBA / Avellaneda                                                      Bartender  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=A26B8A45C21E771DE0D602B7A2076401&cf=469814F59E4D6F04
+7                               Solange Solange Anton                antonsol27@gmail.com   31926659  54-011 - 69928038   40           Buenos Aires-GBA / Tapiales                              Responsable Comercial y Operativa  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=7FF953B83A966AA2A256EC30ED81B115&cf=469814F59E4D6F04
+8                                      Milena Massaro      milenamassarooficial@gmail.com   44727090      54-1122974136   23         Capital Federal / Parque Chas                                                              -  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=0611AE473BF6C23C49666BD8B4381338&cf=469814F59E4D6F04
+9                                      Fernando Summa                  fsumma33@gmail.com   24583229      54-1136545543   50                   Neto/Mensual $ 0.00  Jefe de Compras, Gte de auditoria interna, Encargado de Local  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=84A592131FFB6A30510354F5D4ABCA3D&cf=469814F59E4D6F04
+10                                     Lara Cristaldo                laraaduree@gmail.com   47702910      54-1176371813   18             Buenos Aires-GBA / Moreno                                            Atenciòn al cliente  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=8F674288AF8D4E8BEC2456E4BF054B47&cf=469814F59E4D6F04
+11                            Maria Josefina D Arezzo             josedarezzo12@gmail.com   46204639      54-1159671215   21     Buenos Aires-GBA / Los Polvorines                                                  Recepcionista  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=FD58FD9D9E89F9CE9AC0454D5DB90301&cf=469814F59E4D6F04
+12                                     Martin Antonin      antoninmartinantonin@gmail.com   24563459      54-1132885923   51            Buenos Aires-GBA / Florida                                    Recepcionistas en hotelería  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=16BBC9B303DF64E17FA52C38A54DEDF7&cf=469814F59E4D6F04
+13                           Marcelo Javier Balmaceda               machebalma8@gmail.com   33601243      54-3795111681   37         Capital Federal / San Nicolás                                  Atención al público/ Vendedor  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=46780BA7225BF7BE6915E729F3CA4EBC&cf=469814F59E4D6F04
+14                            Rodrigo Gonzalez Martin        rdrggonzalezmartin@gmail.com   41835220     54-91130734577   26         Buenos Aires-GBA / Carapachay                                         empleado/a de comercio  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=FBFA2B40F8AD086DE0D602B7A2076401&cf=469814F59E4D6F04
+15                            Valeria Daiana Costilla                  val.93dc@gmail.com   37222673      54-1159439080   32             Capital Federal / Almagro                                                Cajera vendedor  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=A7EEE8CA70BFBA7BA0719D2C43545EC6&cf=469814F59E4D6F04
+16                                     Victoria Brito          victoriatambrito@gmail.com   42576074     54-91176543046   25       Buenos Aires-GBA / San Fernando                                                 Administración  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=052B864FF0B58F063A96FF8408A1DB9F&cf=469814F59E4D6F04
+17                            Araceli Carvajal Monzón            aracelivalen05@gmail.com   37100392      54-1171509846   33              Neto/Mensual $ 55,000.00           operario/a Atencion Al Cliente Auxiliar De Farmacias  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=08EC8405F2D3280EAA55A3C23E5E30EF&cf=469814F59E4D6F04
+18                                    santino Pinasco            santypinasco06@gmail.com   47689369      54-1123883340   19                        Buenos Aires /                                            Atención a clientes  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=DD4C8986BCC3F9BD1B05FF8DD6F94559&cf=469814F59E4D6F04
+19                       Sebastian Sebastian Silveira             seb4culture22@gmail.com          -         1144482506   31                             Formosa /                                      Empleado/a de gastronomía  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=BBB16824585ECD61FB311398419EA547&cf=469814F59E4D6F04
+20                                 Milagros Fernandez             caromilagrosf@gmail.com          -      54-1154763487   20                   Neto/Mensual $ 0.00                                            Atención al cliente  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=EA2D0A2F4379DA4F4046D2A51DF2E93F&cf=469814F59E4D6F04
+21                             Federico Federico Cruz              fedecruz.adm@gmail.com          -      54-1155240894   40         Buenos Aires-GBA / San Martín                                                 Administrativo  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=3DB3C0381206975E4E9854485B417CF0&cf=469814F59E4D6F04
+22                          Adrián Miguel Vena Safron           adrian.vena1966@gmail.com   17634585      54-1128730001   60             Buenos Aires-GBA / Olivos                                                             CV  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=2C758C350BFF76B2862B1A59E0108F94&cf=469814F59E4D6F04
+23                            Patricia Malena Bertana               malebertana@gmail.com   40392952     54-91163699728   34          Buenos Aires-GBA / La Lucila                              Responsable comercial corporativa  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=6F65D60D8836151D8CDBE61D9BBD0E90&cf=469814F59E4D6F04
+24                                    Julieta Schmidt         julieta.schmidt03@gmail.com   44833306     54-91144175032   22      Buenos Aires-GBA / Villa Adelina                                          Administrativo ventas  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=F5183137B5DB4FC4FC13F47FB20C6219&cf=469814F59E4D6F04
+25                                  Agustina Petaccio           petacho.digital@gmail.com   47170524      54-1131530090   20           Buenos Aires-GBA / Martínez                                            Servicio al cliente  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=A866CD2BDDE28847805245BE845649B3&cf=469814F59E4D6F04
+26                            Martina Judith Martinez    mmartinayudithmartinez@gmail.com   41168379      54-1133059036   27             Neto/Mensual $ 130,000.00                                               Martina Martinez  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=A90361B4D7F7E4AFFD9AD9EE6C2EF0D8&cf=469814F59E4D6F04
+27                                     Joaquín Molina           molinajoaquin11@gmail.com   43314327        54-47159003   25             Neto/Mensual $ 700,000.00                                   Estudiante de Administración  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=3AC07C92D3A571AC34D241A25E7566C6&cf=469814F59E4D6F04
+28   Sharon Escobero Sharon Escobero Escobero Coronel            sharon10magali@gmail.com   47859998      54-1158844592   19       Buenos Aires-GBA / Billinghurst                                            Atención al cliente  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=BCECDED9D3CCB55F347BF56FE597534A&cf=469814F59E4D6F04
+29                                  Morena Capparelli            morena2004capp@gmail.com   46335308      54-1124544499   21       Buenos Aires-GBA / San Fernando                                            Atencion al cliente  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=52A70496306C2CBA8F244C009839F856&cf=469814F59E4D6F04
+30                                      Ariel Gularte            arielgularte22@gmail.com   59442263      54-2901529000   27            Buenos Aires-GBA / Florida                                            Atención al público  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=048DE018260F87E3347BF56FE597534A&cf=469814F59E4D6F04
+31                            María Gabriela Decaroli            vet.magadecaro@gmail.com   23881599      54-2923425405   51             Buenos Aires-GBA / Olivos                                                         Cajera  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=768A2F78FA8724FA347BF56FE597534A&cf=469814F59E4D6F04
+32                           Rodrigo Gaspar Gutierrez             rodrigo219074@gmail.com   33833678        54-76412583   38                 Misiones / San Martín                              -Transformando ideas en realidad-  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=2BBFA3F1EAC7DB9C9479213FCBDD80C7&cf=469814F59E4D6F04
+33                                   Camila Izquierdo      camilaaylenizquierdo@gmail.com          -         1123884060   27                 Neto/Mensual $ 900.00                                       Vendedora-barista-cajera  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=CA430EB90CA40795FB311398419EA547&cf=469814F59E4D6F04
+34                                     Diego Braguzzi             coco.canch.dc@gmail.com   43723852      54-1138473344   24  Buenos Aires-GBA / Lomas del Mirador                                      Curriculum vitae braguzzi  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=567F9A938588F5A5C41BEF05180029E6&cf=469814F59E4D6F04
+35                                 Brenda Melina Diaz                 diaz89248@gmail.com   41672528      54-1155694791   27          Buenos Aires / Mar del Plata                                                      Vendedora  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=8DD5CBD10BF9597241E3AF25F453A68D&cf=469814F59E4D6F04
+36                              Federico Daniel Zanni              fede.zanni@hotmail.com  385489063        54-39346457   31                     Chubut / Cushamen                                                       Vendedor  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=6000BBFEE97A03376915E729F3CA4EBC&cf=469814F59E4D6F04
+37                                   mariela burgueño                marulina74@gmail.com   18886042      54-1133640388   34       Buenos Aires-GBA / San Fernando                                            Atención al público  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=621C84186BD5BEF78CDBE61D9BBD0E90&cf=469814F59E4D6F04
+38                                Juan Ignacio Garcia       garciajuanignacio21@gmail.com   47083463     54-91145287732   20      Buenos Aires-GBA / Vicente López                                              Comercio Exterior  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=7220A6B6218CF79757D0F6FC0956AD79&cf=469814F59E4D6F04
+39                               Micaela Belen Cabaña           cabamica97belen@gmail.com   40861360     54-01125998085   28                   Neto/Mensual $ 0.00                                               Cajera, Operaria  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=F3096B0F830286E8954CBC6AF435B459&cf=469814F59E4D6F04
+40                                        Alejo Zullo                zulloalejo@gmail.com   46682578      54-1131948644   20    Buenos Aires-GBA / Isidro Casanova                           Vendedor b2b/ Tecnico en Automotores  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=C4EC7FA4CDE9AA0AEC2456E4BF054B47&cf=469814F59E4D6F04
+41                              María Noelia Gonzalez                noe2810.ng@gmail.com   35397185     011-1133014127   35     Buenos Aires-GBA / Los Polvorines                                                 administrativa  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=7D09D663E01B48CF63F35CEF37411BA4&cf=469814F59E4D6F04
+42                   Natalia Natalia Jedlicka Monzani           nataliajedlicka@gmail.com   21300158      54-1149772116   56                    Misiones / Posadas                                                staff de ventas  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=B34EB6588D3EF9863A394CD47AA23ED5&cf=469814F59E4D6F04
+43                                         Flavia Paz            flavia41388082@gmail.com   41388082      54-1167207743   29    Buenos Aires-GBA / Rafael Castillo                                       Admistrativa Y Vendedora  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=63426C8B8FC2243CC59510E6C866F0D7&cf=469814F59E4D6F04
+44                               Raul antonio Moriera             raulamoreira3@gmail.com   30584474      54-1170629328   42             Neto/Mensual $ 800,000.00                    Polivalente encargado vendedor gastronómico  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=63E4751D6C0E9E5449666BD8B4381338&cf=469814F59E4D6F04
+45                                  Valentina Solinak       sanvalentinasolinak@gmail.com          -         1147749590   18              Buenos Aires-GBA / Tigre                                                       Vendedor  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=DC1C2AE7D5377752E0D602B7A2076401&cf=469814F59E4D6F04
+46                         Mauricio Leonardo Corvalan       leonardo.corvalan87@gmail.com   32967649      54-1130319089   39      Buenos Aires-GBA / Villa de Mayo                               Publicista y relaciones públicas  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=EEE25A21025E9EE2C59510E6C866F0D7&cf=469814F59E4D6F04
+47                                   Adrian Guischner    adriandomingoguischner@gmail.com   31930558      54-1128839249   40           Capital Federal / Caballito                                                 Administración  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=BFEDF150335477A7FD8B2EB690213FA3&cf=469814F59E4D6F04
+48                       Francisco Rodríguez Saavedra         rodriguezsaa.fran@gmail.com   47185555      54-1132667442   20              Chaco / Gral. San Martín                                            Técnico Electrónico  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=1CB2F5811258EE17954CBC6AF435B459&cf=469814F59E4D6F04
+49                               Cecilia Lucia Romero        cecilia.romero1623@gmail.com   43900647      54-1140930653   24        Buenos Aires-GBA / José C. Paz                                            Atención al cliente  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=4A37CA4E138A7D2E68060E7E8D8A049D&cf=469814F59E4D6F04
+50                                  Mariano Di Pierro     marianohectordipierro@gmail.com   27226965      54-1124837754   47              Capital Federal / Flores                                           OBJETIVO PROFESIONAL  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=5ADBB92C9285F42FEC2456E4BF054B47&cf=469814F59E4D6F04
+51                                   Facundo Battista          battistafacundo1@gmail.com   46627293      54-1151741441   21       Buenos Aires-GBA / San Fernando                                                         Cajero  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=6F7C2B00B2573F1F58DFF26881DD7C52&cf=469814F59E4D6F04
+52                          Gerardo Salvador Carrozza            gesalvador63@hotmail.com   16792819      54-1124550692   62             Capital Federal / Almagro                  Gerente de administración y finanzas Contador  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=A916EB3B5AC065C0CA9A94CE1FB24D92&cf=469814F59E4D6F04
+53                                         Sin Nombre                                   -          -                  -    -                                     -                                                              -  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:                                                                                                                     https://empresa.ar.computrabajo.com/Company/Cvs
+54                                     María Trinidad            triniortizok@hotmail.com   43586595     54-01126850605   24              Buenos Aires-GBA / Tigre                                  Me llamo María Trinidad Ortiz  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=9D8F6D36346E5BB9862B1A59E0108F94&cf=469814F59E4D6F04
+55                                  Ares Ares Ramirez             aresramireztb@gmail.com   44833293      54-1123863084   22      Buenos Aires-GBA / Vicente López                                             VENDEDOR COMERCIAL  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=A3FB3D3FA3F42B28BED1CE9C55F15C35&cf=469814F59E4D6F04
+56                                     Agustín Antuña          agustin.antuna.1@gmail.com   33174608     54-01151312101   38           Capital Federal / Monserrat                                                       Vendedor  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=3E3BE2F4179714DE0E2ADCCCB1B190E1&cf=469814F59E4D6F04
+57                            Maria del Milagro Monti               montimemi95@gmail.com   38847122      54-1159519756   31             Buenos Aires-GBA / Beccar                                   Recepcionista administrativo  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=81A1BDF434BD0A6658C0762E53B054AF&cf=469814F59E4D6F04
+58                                       Matias Ferro            matias.ferro19@gmail.com   34472486      54-1130370463   27     Buenos Aires-GBA / Los Polvorines               Versátil: Movilidad, Ventas y Desarrollo Digital  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=634761FCBA3F5260485E19E26BF1CDB8&cf=469814F59E4D6F04
+59                         Melvin Isaac Diaz Chirinos           melvinisaacdiaz@gmail.com   95974662      54-1136424525   38      Buenos Aires-GBA / Vicente López       Especialista en Logística Integral y Gestión de Almacén.  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=4D883BEA55A4FC6065ED05FE8DE5CF7B&cf=469814F59E4D6F04
+60                               Maximo Maximo Cañete            maxicanete1207@gmail.com   47410139     54-34541484465   19           Buenos Aires-GBA / Martínez                    Estudiante licenciatura en ciencias fisicas  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=D9F816763CA1A2F668060E7E8D8A049D&cf=469814F59E4D6F04
+61                                    Ezequiel Juarez        thiagoezequiel2309@gmail.com   45123758      54-1126801706   22             Capital Federal / Coghlan                                                       Operario  Si deseas conocer más información sobre nuestros nuevos Packs de Ofertas y Servicios de Membresía contacta con nuestro equipo comercial a través de:  https://empresa.ar.computrabajo.com/Company/MatchCvDetail/MatchDetail?oi=A66AC7F6FECABE7B61373E686DCF3405&ims=0D264C5D2E633180A2C51763AA4BD97E&cf=469814F59E4D6F04
+62                             Mariano Gaston Pelliza           florymarian0410@gmail.com   40095305      54-1154201100   29   
+
+MENSAJE DEL USUARIO: Hola
+IA: 

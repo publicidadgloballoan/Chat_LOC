@@ -1,0 +1,38 @@
+{
+  "name": "flujofluidos",
+  "nodes": [
+    {
+      "id": "node_webhook",
+      "type": "webhook",
+      "name": "TRIGGER INICIO",
+      "description": "Entrada de mensajes",
+      "position": { "x": 50, "y": 150 }
+    },
+    {
+      "id": "node_id",
+      "type": "identity",
+      "name": "SOLICITAR NOMBRE",
+      "description": "Registro de identidad A1",
+      "position": { "x": 350, "y": 150 }
+    },
+    {
+      "id": "node_brain",
+      "type": "rag",
+      "name": "OLLAMA CORE",
+      "description": "Procesamiento con RAG",
+      "position": { "x": 650, "y": 150 }
+    },
+    {
+      "id": "node_ticket",
+      "type": "ticket",
+      "name": "TICKETS A3",
+      "description": "Cierre y registro",
+      "position": { "x": 950, "y": 150 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "node_webhook", "target": "node_id" },
+    { "id": "e2", "source": "node_id", "target": "node_brain" },
+    { "id": "e3", "source": "node_brain", "target": "node_ticket" }
+  ]
+}

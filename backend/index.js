@@ -467,9 +467,14 @@ app.get('/api/wa/qr', async (req, res) => {
                 timeout: 5000
             });
             
-            if (response.data && (response.data.base64 || response.data.code)) {
-                qrData = response.data;
-                if (qrData.base64) break; // Prioridad al base64
+            if (response.data) {
+                if (response.data.count === 0 && !response.data.base64) {
+                    return res.json({ status: "connected", message: "La instancia ya se encuentra vinculada." });
+                }
+                if (response.data.base64 || response.data.code) {
+                    qrData = response.data;
+                    if (qrData.base64) break; // Prioridad al base64
+                }
             }
             await new Promise(r => setTimeout(r, 2000));
         }
@@ -933,6 +938,18 @@ app.put('/api/channels/:id', authenticateToken, async (req, res) => {
             where: { id },
             data
         });
+        
+        // Sincronizar con los archivos JSON en ai_core/config/instanceName/
+        if (updated.instanceName) {
+            const path = require('path');
+            const configDir = path.join(__dirname, '..', 'ai_core', 'config', updated.instanceName);
+            if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+            
+            if (data.configA1 !== undefined) fs.writeFileSync(path.join(configDir, 'config_a1.json'), JSON.stringify(data.configA1, null, 2));
+            if (data.configA2 !== undefined) fs.writeFileSync(path.join(configDir, 'config_a2.json'), JSON.stringify(data.configA2, null, 2));
+            if (data.configA3 !== undefined) fs.writeFileSync(path.join(configDir, 'config_a3.json'), JSON.stringify(data.configA3, null, 2));
+        }
+
         res.json(updated);
     } catch (e) {
         console.error("Error updating channel:", e);

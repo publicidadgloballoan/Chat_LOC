@@ -778,7 +778,7 @@ app.post('/api/admin/companies', authenticateToken, async (req, res) => {
 app.get('/api/license/status', authenticateToken, async (req, res) => {
     try {
         const LICENSE_SERVER = process.env.LICENSE_SERVER || 'http://127.0.0.1:7000';
-        const licenseFile = require('path').join(__dirname, '..', 'ai_core', 'license.json');
+        const licenseFile = require('path').join(__dirname, '..', 'ai_core', 'config', 'license_config.json');
         
         const companyId = req.user.companyId;
         let targetCompanyId = companyId;

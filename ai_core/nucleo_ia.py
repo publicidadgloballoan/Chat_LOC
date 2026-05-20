@@ -2083,6 +2083,16 @@ def handle_api_data():
                 return jsonify({"success": True})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
 
+        if action == 'delete_instance':
+            try:
+                inst_name = data.get('instance')
+                c.execute("DELETE FROM connections WHERE instance=?", (inst_name,))
+                conn.commit()
+                current_api_key = os.getenv("AUTHENTICATION_API_KEY", EVO_API_KEY)
+                requests.delete(f"{EVO_URL}/instance/delete/{inst_name}", headers={"apikey": current_api_key}, timeout=5)
+                return jsonify({"success": True})
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
         if action == 'get_library_index':
             try:
                 files_list = []

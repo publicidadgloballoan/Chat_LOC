@@ -204,6 +204,34 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteInstance = async (instName: string) => {
+    if(!confirm(`¿Estás seguro de eliminar la instancia ${instName}? Esto la desconectará por completo.`)) return;
+    try {
+      const token = localStorage.getItem('PICE SaaS_token');
+      const apiHost = window.location.hostname;
+      await axios.post(`http://${apiHost}:4000/api/data`, {
+        action: 'delete_instance',
+        instance: instName
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      alert('Instancia eliminada correctamente.');
+      fetchData();
+    } catch(e) {
+      alert('Error eliminando instancia.');
+    }
+  };
+
+  const handleSyncInstances = async () => {
+    try {
+      const token = localStorage.getItem('PICE SaaS_token');
+      const apiHost = window.location.hostname;
+      await axios.post(`http://${apiHost}:4000/api/data`, { action: 'sync' }, { headers: { Authorization: `Bearer ${token}` } });
+      alert('Servicios sincronizados y reconectados.');
+      fetchData();
+    } catch(e) {
+      alert('Error sincronizando servicios.');
+    }
+  };
+
   const fetchData = async (overrideCompanyId?: number) => {
     try {
       const token = localStorage.getItem('PICE SaaS_token');
@@ -1396,10 +1424,16 @@ export default function DashboardPage() {
                       <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
                         <Radio size={18} className="text-emerald-400" /> Centro de Conexiones
                       </h3>
-                      <button 
-                        onClick={() => setShowConnectModal('whatsapp')}
-                        className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all"
-                      >+ NUEVA INSTANCIA WA</button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={handleSyncInstances}
+                          className="px-4 py-2 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-sky-500 hover:text-white transition-all"
+                        >REINICIAR WA</button>
+                        <button 
+                          onClick={() => setShowConnectModal('whatsapp')}
+                          className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all"
+                        >+ NUEVA INSTANCIA WA</button>
+                      </div>
                    </div>
 
                     {/* WHATSAPP GROUP */}
@@ -1420,7 +1454,8 @@ export default function DashboardPage() {
                                   </div>
                                </div>
                                <div className="flex gap-2">
-                                 <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white opacity-0 group-hover:opacity-100 transition-all"><Eye size={12}/></button>
+                                 <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white opacity-0 group-hover:opacity-100 transition-all" title="Ver QR"><Eye size={12}/></button>
+                                 <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-white/5 text-red-400/50 rounded-lg hover:bg-red-500/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Eliminar Instancia"><Trash2 size={12}/></button>
                                  <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                    {inst.state === 'open' ? 'CONECTADO' : 'OFFLINE'}
                                  </div>

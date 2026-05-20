@@ -918,6 +918,28 @@ app.delete('/api/admin/agents/:id', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put('/api/channels/:id', authenticateToken, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { botName, configA1, configA2, configA3 } = req.body;
+        
+        let data = {};
+        if (botName !== undefined) data.botName = botName;
+        if (configA1 !== undefined) { try { data.configA1 = typeof configA1 === 'string' ? JSON.parse(configA1) : configA1; } catch { data.configA1 = configA1; } }
+        if (configA2 !== undefined) { try { data.configA2 = typeof configA2 === 'string' ? JSON.parse(configA2) : configA2; } catch { data.configA2 = configA2; } }
+        if (configA3 !== undefined) { try { data.configA3 = typeof configA3 === 'string' ? JSON.parse(configA3) : configA3; } catch { data.configA3 = configA3; } }
+        
+        const updated = await prisma.channel.update({
+            where: { id },
+            data
+        });
+        res.json(updated);
+    } catch (e) {
+        console.error("Error updating channel:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.all('/api/data', authenticateToken, upload.single('file'), async (req, res) => {
     try {
         const url = `http://127.0.0.1:5000/api/data`;

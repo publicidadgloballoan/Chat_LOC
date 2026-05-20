@@ -50,7 +50,8 @@ import {
   Filter,
   Clock,
   Smartphone,
-  HeartPulse
+  HeartPulse,
+  Pencil
 } from 'lucide-react';
 import MktEmisivo from './components/MktEmisivo';
 import Contactos from './components/Contactos';
@@ -111,6 +112,8 @@ export default function DashboardPage() {
   const [uploading, setUploading] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState<string | null>(null);
   const [connectData, setConnectData] = useState<any>({});
+  const [showEditChannelModal, setShowEditChannelModal] = useState<boolean>(false);
+  const [editChannelData, setEditChannelData] = useState<any>({});
   
   // Admin Config States
   const [hwStats, setHwStats] = useState<any>(null);
@@ -217,6 +220,27 @@ export default function DashboardPage() {
       fetchData();
     } catch(e) {
       alert('Error eliminando instancia.');
+    }
+  };
+
+  const handleSaveChannelEdit = async () => {
+    try {
+      const token = localStorage.getItem('PICE SaaS_token');
+      const apiHost = window.location.hostname;
+      await axios.put(`http://${apiHost}:4000/api/channels/${editingChannel.id}`, {
+        botName: editChannelData.botName,
+        configA1: editChannelData.configA1,
+        configA2: editChannelData.configA2,
+        configA3: editChannelData.configA3
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      
+      // Auto sync or restart logic could go here if needed, but for now we just save.
+      setShowEditChannelModal(false);
+      alert('Canal actualizado correctamente.');
+      fetchInitialData(token!);
+    } catch(err: any) {
+      console.error('Error updating channel:', err);
+      alert('Error al guardar la configuración del canal.');
     }
   };
 
@@ -1436,77 +1460,101 @@ export default function DashboardPage() {
                       </div>
                    </div>
 
-                    {/* WHATSAPP GROUP */}
-                    <div className="space-y-4">
-                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-4 border-b border-white/5 pb-2">Canal WhatsApp</span>
-                       <div className="grid grid-cols-1 gap-3">
+                    {/* TODOS LOS CANALES (TABLA) */}
+                    <div className="overflow-x-auto w-full bg-white/5 rounded-2xl border border-white/5">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-white/10">
+                            <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
+                            <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">Plataforma</th>
+                            <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">Instancia / Bot</th>
+                            <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
                           {(() => {
-                            // Canales WA guardados en DB
-                            const dbWa = channels.filter(ch => !ch.instanceName?.includes('ig_') && !ch.instanceName?.includes('instagram_'));
-                            // Agregar estado real de Baileys si lo tiene
-                            const merged = dbWa.map(ch => {
+                            // Combinar Canales DB con estado de Baileys
+                            const merged = channels.map(ch => {
                               const live = allInstances.find(i => i.instanceName === ch.instanceName);
-                              return { instanceName: ch.instanceName, phone: live?.phone || ch.phone, state: live?.state || 'close' };
+                              return { ...ch, state: live?.state || 'close', livePhone: live?.phone };
                             });
-                            // Agregar los de Baileys que no estén en DB
-                            allInstances.filter(i => !i.instanceName?.includes('ig_') && !i.instanceName?.includes('instagram_') && !dbWa.find(ch => ch.instanceName === i.instanceName))
-                              .forEach(i => merged.push(i));
-                            if (merged.length === 0) return (
-                              <div className="p-4 bg-white/5 rounded-2xl border border-dashed border-white/10 text-center">
-                                <p className="text-[9px] font-bold text-slate-500 uppercase">Sin canales WA. Crea una nueva instancia ↑</p>
-                              </div>
-                            );
-                            return merged.map((inst, i) => (
-                            <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-emerald-500/30 transition-all">
-                               <div className="flex items-center gap-4 truncate">
-                                  <div className={`w-2 h-2 rounded-full ${inst.state === 'open' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-amber-500/70'}`}></div>
-                                  <div className="truncate">
-                                     <span className="block text-[10px] font-black text-white uppercase truncate">{inst.instanceName}</span>
-                                     <span className="block text-[8px] font-bold text-slate-500 uppercase">{inst.phone ? `+${inst.phone}` : 'SIN TELÉFONO'}</span>
-                                  </div>
-                               </div>
-                               <div className="flex gap-2 items-center">
-                                 <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white transition-all" title="Ver QR / Reconectar"><Eye size={12}/></button>
-                                 <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all" title="Eliminar Instancia"><Trash2 size={12}/></button>
-                                 <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                                   {inst.state === 'open' ? 'CONECTADO' : 'OFFLINE'}
-                                 </div>
-                               </div>
-                            </div>
-                          ));
-                          })()}
-                       </div>
-                    </div>
+                            
+                            // Agregar los de Baileys que no estén en DB (huérfanos)
+                            allInstances.forEach(i => {
+                              if(!merged.find(m => m.instanceName === i.instanceName)) {
+                                 merged.push({
+                                   id: null,
+                                   instanceName: i.instanceName,
+                                   platform: i.instanceName.includes('ig_') || i.instanceName.includes('instagram_') ? 'instagram' : 'whatsapp',
+                                   botName: i.instanceName,
+                                   state: i.state,
+                                   livePhone: i.phone
+                                 });
+                              }
+                            });
 
-                    {/* INSTAGRAM GROUP */}
-                    <div className="space-y-4">
-                       <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
-                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] block">Canal Instagram</span>
-                          <button onClick={() => setShowConnectModal('instagram')} className="text-[8px] font-black text-sky-400 uppercase tracking-widest">+ ADD IG</button>
-                       </div>
-                       <div className="grid grid-cols-1 gap-3">
-                          {allInstances.filter(i => {
-                            const isIg = i.instanceName.includes('ig_') || i.instanceName.includes('instagram_');
-                            const belongsToCompany = channels.some(ch => ch.instanceName === i.instanceName);
-                            return isIg && belongsToCompany;
-                          }).map((inst, i) => (
-                            <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-sky-500/30 transition-all">
-                               <div className="flex items-center gap-4 truncate">
-                                  <div className={`w-2 h-2 rounded-full ${inst.state === 'open' ? 'bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`}></div>
-                                  <div className="truncate">
-                                     <span className="block text-[10px] font-black text-white uppercase truncate">{inst.instanceName}</span>
-                                     <span className="block text-[8px] font-bold text-slate-500 uppercase">INSTAGRAM ACCOUNT</span>
+                            if (merged.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={4} className="py-8 text-center text-[9px] font-bold text-slate-500 uppercase">
+                                    Sin canales conectados. Crea una nueva instancia ↑
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return merged.map((inst: any, i) => (
+                              <tr key={i} className="group hover:bg-white/[0.08] transition-all">
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${inst.state === 'open' ? (inst.platform === 'whatsapp' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]') : 'bg-amber-500/70'}`}></div>
+                                    <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? (inst.platform==='whatsapp' ? 'bg-green-500/10 text-green-400' : 'bg-sky-500/10 text-sky-400') : 'bg-amber-500/10 text-amber-400'}`}>
+                                      {inst.state === 'open' ? (inst.platform === 'whatsapp' ? 'CONECTADO' : 'IA ACTIVA') : 'OFFLINE'}
+                                    </div>
                                   </div>
-                               </div>
-                               <div className="flex gap-2 items-center">
-                                 <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all" title="Eliminar Instancia"><Trash2 size={12}/></button>
-                                 <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-sky-500/10 text-sky-400' : 'bg-red-500/10 text-red-400'}`}>
-                                   {inst.state === 'open' ? 'IA ACTIVA' : 'OFFLINE'}
-                                 </div>
-                               </div>
-                            </div>
-                          ))}
-                       </div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">{inst.platform}</span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="block text-[10px] font-black text-white uppercase">{inst.instanceName}</span>
+                                  <span className="block text-[8px] font-bold text-slate-500 uppercase">
+                                    {inst.botName || 'SIN BOT'} {inst.livePhone ? `(+${inst.livePhone})` : ''}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 flex justify-end gap-2 items-center">
+                                  {inst.id && (
+                                    <button 
+                                      onClick={() => {
+                                        setEditingChannel(inst);
+                                        setEditChannelData({
+                                           botName: inst.botName,
+                                           configA1: inst.configA1 ? (typeof inst.configA1 === 'string' ? JSON.parse(inst.configA1) : inst.configA1) : {},
+                                           configA2: inst.configA2 ? (typeof inst.configA2 === 'string' ? JSON.parse(inst.configA2) : inst.configA2) : {},
+                                           configA3: inst.configA3 ? (typeof inst.configA3 === 'string' ? JSON.parse(inst.configA3) : inst.configA3) : {}
+                                        });
+                                        setShowEditChannelModal(true);
+                                      }}
+                                      className="p-2 bg-white/5 text-sky-400 rounded-lg hover:bg-sky-500 hover:text-white transition-all" 
+                                      title="Editar Configuración"
+                                    >
+                                      <Pencil size={12}/>
+                                    </button>
+                                  )}
+                                  {inst.platform === 'whatsapp' && (
+                                    <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white transition-all" title="Ver QR / Reconectar">
+                                      <Eye size={12}/>
+                                    </button>
+                                  )}
+                                  <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all" title="Eliminar Instancia">
+                                    <Trash2 size={12}/>
+                                  </button>
+                                </td>
+                              </tr>
+                            ));
+                          })()}
+                        </tbody>
+                      </table>
                     </div>
 
                    {/* OTROS CANALES */}

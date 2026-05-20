@@ -201,6 +201,27 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
     }
 });
 
+// --- SETUP COPILOT ---
+app.post('/api/copilot', authenticateToken, async (req, res) => {
+    try {
+        const { message, context, instance } = req.body;
+        console.log(`[COPILOT] Request from ${req.user.name} for context: ${context}`);
+        
+        // Proxy to Python Nucleo IA
+        const response = await axios.post(`http://127.0.0.1:5000/api/copilot`, {
+            message,
+            context,
+            instance,
+            userId: req.user.id
+        }, { timeout: 30000 });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('API COPILOT ERROR:', error.message);
+        res.status(500).json({ error: 'Error comunicándose con el Copilot IA' });
+    }
+});
+
 // --- MÓDULO 1: ONBOARDING & VALIDACIÓN FISCAL ---
 const validateCUIT = (cuit) => {
     const clean = cuit.replace(/-/g, "");

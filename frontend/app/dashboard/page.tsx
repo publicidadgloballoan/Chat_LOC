@@ -55,6 +55,7 @@ import MktEmisivo from './components/MktEmisivo';
 import Contactos from './components/Contactos';
 import TicketsAdmin from './components/TicketsAdmin';
 import LicensePanel from './components/LicensePanel';
+import SetupCopilot from './components/SetupCopilot';
 import axios from 'axios';
 
 export default function DashboardPage() {
@@ -2955,6 +2956,7 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      <SetupCopilot activeTab={activeTab} selectedChannel={selectedChannel} onApplyAction={handleAction} />
     </div>
   );
 }

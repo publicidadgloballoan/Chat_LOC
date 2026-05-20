@@ -723,6 +723,37 @@ def get_chat_summary(phone, inst):
         logger.error(f" [SUMMARIZE-ERR] {e}")
         return "Error al generar resumen."
 
+# --- API COPILOT ---
+@app.route('/api/copilot', methods=['POST'])
+def handle_copilot():
+    data = request.get_json(silent=True) or {}
+    msg = data.get('message', '')
+    context = data.get('context', '')
+    instance = data.get('instance', 'default')
+    
+    # Construir el System Prompt según el contexto
+    sys_prompt = "Eres el asistente experto de configuración de PICE SaaS. Tu objetivo es ayudar al usuario a configurar el módulo de " + context + "."
+    if context == 'Botones A1':
+        sys_prompt += " Pregúntale qué opciones quiere en su menú principal. Si ya te lo dijo, genera un bloque JSON al final de tu respuesta con este formato:\n```json\n{\"action\": \"save_config\", \"type\": \"a1\", \"config\": {\"menuOptions\": [\"opcion 1\", \"opcion 2\"]}}\n```"
+    elif context == 'Flujos IA':
+        sys_prompt += " Ayúdalo a definir los pasos de su embudo. Cuando esté listo, genera un JSON para crear el flujo (nodos y edges)."
+    elif context == 'Identidad & Misión':
+        sys_prompt += " Ayúdalo a definir su misión, visión y tono de voz."
+
+    response_text = query_ollama(msg, sys_prompt, instance)
+    
+    action = None
+    if "```json" in response_text:
+        try:
+            import json
+            json_str = response_text.split("```json")[1].split("```")[0].strip()
+            action = json.loads(json_str)
+            response_text = response_text.split("```json")[0].strip()
+        except:
+            pass
+            
+    return jsonify({"success": True, "message": response_text, "action": action})
+
 # --- API DASHBOARD ---
 @app.route('/api/data', methods=['GET', 'POST'])
 def handle_api_data():

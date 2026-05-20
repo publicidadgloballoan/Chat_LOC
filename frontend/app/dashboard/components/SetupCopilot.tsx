@@ -56,6 +56,7 @@ export default function SetupCopilot({ activeTab, selectedChannel, onApplyAction
       
       const res = await axios.post(`http://${apiHost}:4000/api/copilot`, {
         message: userMsg,
+        history: messages,
         context: activeTab,
         instance: selectedChannel?.instanceName
       }, {

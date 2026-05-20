@@ -728,19 +728,25 @@ def get_chat_summary(phone, inst):
 def handle_copilot():
     data = request.get_json(silent=True) or {}
     msg = data.get('message', '')
+    history = data.get('history', [])
     context = data.get('context', '')
     instance = data.get('instance', 'default')
     
     # Construir el System Prompt según el contexto
     sys_prompt = "Eres el asistente experto de configuración de PICE SaaS. Tu objetivo es ayudar al usuario a configurar el módulo de " + context + "."
+    sys_prompt += "\nIMPORTANTE: A medida que el usuario te dé detalles, ve armando la configuración y SIEMPRE incluye un bloque JSON al final de tu respuesta para que el sistema lo previsualice en tiempo real."
+    
     if context == 'Botones A1':
-        sys_prompt += " Pregúntale qué opciones quiere en su menú principal. Si ya te lo dijo, genera un bloque JSON al final de tu respuesta con este formato:\n```json\n{\"action\": \"save_config\", \"type\": \"a1\", \"config\": {\"menuOptions\": [\"opcion 1\", \"opcion 2\"]}}\n```"
+        sys_prompt += " \nFormato de JSON esperado (dentro de ```json y ```):\n{\"action\": \"save_config\", \"type\": \"a1\", \"config\": {\"menuOptions\": [\"Opcion 1\", \"Opcion 2\"]}}"
     elif context == 'Flujos IA':
-        sys_prompt += " Ayúdalo a definir los pasos de su embudo. Cuando esté listo, genera un JSON para crear el flujo (nodos y edges)."
+        sys_prompt += " \nPregúntale los pasos del embudo. A medida que te diga opciones, ve creando nodos (type 'webhook', 'media', 'buttons') y edges. Formato de JSON esperado:\n{\"action\": \"save_config\", \"type\": \"flow\", \"config\": {\"name\": \"flow_copilot\", \"nodes\": [{\"id\": \"1\", \"type\": \"buttons\", \"data\": {\"label\": \"Paso 1\"}, \"position\": {\"x\":0, \"y\":0}}], \"edges\": []}}"
     elif context == 'Identidad & Misión':
-        sys_prompt += " Ayúdalo a definir su misión, visión y tono de voz."
+        sys_prompt += " \nFormato de JSON esperado:\n{\"action\": \"save_knowledge\", \"type\": \"identity\", \"data\": {\"mission\": \"...\", \"vision\": \"...\", \"voiceTone\": \"...\", \"faqs\": \"...\"}}"
 
-    response_text = query_ollama(msg, sys_prompt, instance)
+    # Filtrar el history si es demasiado largo, dejar los ultimos 10
+    filtered_history = history[-10:] if history else None
+
+    response_text = query_ollama(msg, sys_prompt, instance, history=filtered_history)
     
     action = None
     if "```json" in response_text:

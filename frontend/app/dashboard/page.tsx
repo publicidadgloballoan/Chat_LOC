@@ -2956,7 +2956,29 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
-      <SetupCopilot activeTab={activeTab} selectedChannel={selectedChannel} onApplyAction={handleAction} />
+      <SetupCopilot 
+        activeTab={activeTab} 
+        selectedChannel={selectedChannel} 
+        onApplyAction={async (actionObj: any) => {
+          console.log("[Copilot Action]", actionObj);
+          if (actionObj.action === 'save_config') {
+            if (actionObj.type === 'flow') {
+              setSelectedFlow(actionObj.config);
+            } else if (actionObj.type === 'a1') {
+              setConfigs((prev: any) => ({ ...prev, a1: actionObj.config }));
+            }
+          } else if (actionObj.action === 'save_knowledge') {
+            if (actionObj.type === 'identity') {
+              setStructuredKnowledge((prev: any) => ({ ...prev, identity: actionObj.data }));
+            }
+          }
+          // We also send the action to the backend to actually save it!
+          await handleAction(actionObj.action, actionObj);
+          if (activeTab !== 'Flujos IA') {
+            fetchData();
+          }
+        }} 
+      />
     </div>
   );
 }

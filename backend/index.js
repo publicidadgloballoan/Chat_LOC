@@ -204,12 +204,13 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
 // --- SETUP COPILOT ---
 app.post('/api/copilot', authenticateToken, async (req, res) => {
     try {
-        const { message, context, instance } = req.body;
+        const { message, history, context, instance } = req.body;
         console.log(`[COPILOT] Request from ${req.user.name} for context: ${context}`);
         
         // Proxy to Python Nucleo IA
         const response = await axios.post(`http://127.0.0.1:5000/api/copilot`, {
             message,
+            history,
             context,
             instance,
             userId: req.user.id

@@ -1440,28 +1440,41 @@ export default function DashboardPage() {
                     <div className="space-y-4">
                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-4 border-b border-white/5 pb-2">Canal WhatsApp</span>
                        <div className="grid grid-cols-1 gap-3">
-                          {allInstances.filter(i => {
-                            const isIg = i.instanceName.includes('ig_') || i.instanceName.includes('instagram_');
-                            const belongsToCompany = channels.some(ch => ch.instanceName === i.instanceName);
-                            return !isIg && belongsToCompany;
-                          }).map((inst, i) => (
+                          {(() => {
+                            // Canales WA guardados en DB
+                            const dbWa = channels.filter(ch => !ch.instanceName?.includes('ig_') && !ch.instanceName?.includes('instagram_'));
+                            // Agregar estado real de Baileys si lo tiene
+                            const merged = dbWa.map(ch => {
+                              const live = allInstances.find(i => i.instanceName === ch.instanceName);
+                              return { instanceName: ch.instanceName, phone: live?.phone || ch.phone, state: live?.state || 'close' };
+                            });
+                            // Agregar los de Baileys que no estén en DB
+                            allInstances.filter(i => !i.instanceName?.includes('ig_') && !i.instanceName?.includes('instagram_') && !dbWa.find(ch => ch.instanceName === i.instanceName))
+                              .forEach(i => merged.push(i));
+                            if (merged.length === 0) return (
+                              <div className="p-4 bg-white/5 rounded-2xl border border-dashed border-white/10 text-center">
+                                <p className="text-[9px] font-bold text-slate-500 uppercase">Sin canales WA. Crea una nueva instancia ↑</p>
+                              </div>
+                            );
+                            return merged.map((inst, i) => (
                             <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-emerald-500/30 transition-all">
                                <div className="flex items-center gap-4 truncate">
-                                  <div className={`w-2 h-2 rounded-full ${inst.state === 'open' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`}></div>
+                                  <div className={`w-2 h-2 rounded-full ${inst.state === 'open' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-amber-500/70'}`}></div>
                                   <div className="truncate">
                                      <span className="block text-[10px] font-black text-white uppercase truncate">{inst.instanceName}</span>
                                      <span className="block text-[8px] font-bold text-slate-500 uppercase">{inst.phone ? `+${inst.phone}` : 'SIN TELÉFONO'}</span>
                                   </div>
                                </div>
                                <div className="flex gap-2 items-center">
-                                 <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white transition-all" title="Ver QR"><Eye size={12}/></button>
+                                 <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white transition-all" title="Ver QR / Reconectar"><Eye size={12}/></button>
                                  <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all" title="Eliminar Instancia"><Trash2 size={12}/></button>
-                                 <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                 <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
                                    {inst.state === 'open' ? 'CONECTADO' : 'OFFLINE'}
                                  </div>
                                </div>
                             </div>
-                          ))}
+                          ));
+                          })()}
                        </div>
                     </div>
 

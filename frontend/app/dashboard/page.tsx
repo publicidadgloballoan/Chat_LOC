@@ -1453,9 +1453,9 @@ export default function DashboardPage() {
                                      <span className="block text-[8px] font-bold text-slate-500 uppercase">{inst.phone ? `+${inst.phone}` : 'SIN TELÉFONO'}</span>
                                   </div>
                                </div>
-                               <div className="flex gap-2">
-                                 <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white opacity-0 group-hover:opacity-100 transition-all" title="Ver QR"><Eye size={12}/></button>
-                                 <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-white/5 text-red-400/50 rounded-lg hover:bg-red-500/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Eliminar Instancia"><Trash2 size={12}/></button>
+                               <div className="flex gap-2 items-center">
+                                 <button onClick={() => fetchWhatsAppQR(inst.instanceName)} className="p-2 bg-white/5 text-slate-400 rounded-lg hover:text-white transition-all" title="Ver QR"><Eye size={12}/></button>
+                                 <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all" title="Eliminar Instancia"><Trash2 size={12}/></button>
                                  <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                    {inst.state === 'open' ? 'CONECTADO' : 'OFFLINE'}
                                  </div>
@@ -1485,8 +1485,11 @@ export default function DashboardPage() {
                                      <span className="block text-[8px] font-bold text-slate-500 uppercase">INSTAGRAM ACCOUNT</span>
                                   </div>
                                </div>
-                               <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-sky-500/10 text-sky-400' : 'bg-red-500/10 text-red-400'}`}>
-                                 {inst.state === 'open' ? 'IA ACTIVA' : 'OFFLINE'}
+                               <div className="flex gap-2 items-center">
+                                 <button onClick={() => handleDeleteInstance(inst.instanceName)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all" title="Eliminar Instancia"><Trash2 size={12}/></button>
+                                 <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? 'bg-sky-500/10 text-sky-400' : 'bg-red-500/10 text-red-400'}`}>
+                                   {inst.state === 'open' ? 'IA ACTIVA' : 'OFFLINE'}
+                                 </div>
                                </div>
                             </div>
                           ))}

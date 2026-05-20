@@ -143,18 +143,16 @@ def run_diagnostic_agent():
 
             # 3.2. Instagram (ig_sessions)
             try:
-                ig_sessions_dir = os.path.join(os.path.dirname(__file__), "ig_sessions")
-                if os.path.exists(ig_sessions_dir):
-                    for file in os.listdir(ig_sessions_dir):
-                        if file.endswith(".json"):
-                            inst_name = file.replace(".json", "")
-                            instances_list.append({
-                                "name": inst_name,
-                                "type": "instagram",
-                                "status": "connected"
-                            })
+                r_ig = requests.get("http://localhost:8081/instances", timeout=2)
+                if r_ig.status_code == 200:
+                    for inst_name in r_ig.json():
+                        instances_list.append({
+                            "name": inst_name,
+                            "type": "instagram",
+                            "status": "connected"
+                        })
             except Exception as ie:
-                logger.warning(f" [DIAG-AGENT] Error al leer sesiones de IG: {ie}")
+                logger.warning(f" [DIAG-AGENT] No se pudo conectar a Instagram Service: {ie}")
 
             # 4. Enviar Heartbeat al servidor central de licencias
             payload = {

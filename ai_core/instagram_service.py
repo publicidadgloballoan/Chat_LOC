@@ -123,6 +123,10 @@ def send_message(instance_name):
         logger.error(f" [!] Error enviando IG: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/instances', methods=['GET'])
+def list_instances():
+    return jsonify(list(clients.keys()))
+
 def load_existing_sessions():
     """Carga sesiones guardadas al iniciar el servidor."""
     if not os.path.exists(SESSIONS_DIR):

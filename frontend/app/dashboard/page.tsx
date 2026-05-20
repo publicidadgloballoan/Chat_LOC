@@ -112,6 +112,7 @@ export default function DashboardPage() {
   const [uploading, setUploading] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState<string | null>(null);
   const [connectData, setConnectData] = useState<any>({});
+  const [editingChannel, setEditingChannel] = useState<any>(null);
   const [showEditChannelModal, setShowEditChannelModal] = useState<boolean>(false);
   const [editChannelData, setEditChannelData] = useState<any>({});
   

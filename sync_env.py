@@ -51,5 +51,60 @@ def sync():
         f.writelines(wa_lines)
     print("whatsapp_service/.env actualizado.")
 
+    # 4. Crear o actualizar INICIAR_SAAS_IA.bat en el directorio base
+    launcher_path = os.path.join(base_dir, "INICIAR_SAAS_IA.bat")
+    launcher_content = f"""@echo off
+title SaaS IA Platform
+echo ================================================
+echo   Limpiando procesos anteriores...
+echo ================================================
+taskkill /F /IM node.exe /T 2>nul
+taskkill /F /IM python.exe /T 2>nul
+timeout /t 2 /nobreak >nul
+
+echo ================================================
+echo   Iniciando Plataforma SaaS IA...
+echo ================================================
+cd /d {base_dir}
+
+echo Verificando si hay actualizaciones en GitHub...
+git pull
+
+echo Sincronizando claves de API entre servicios...
+python sync_env.py
+
+echo Verificando y aplicando estructura de tablas (Prisma db push)...
+cd backend
+call npx prisma db push --accept-data-loss
+cd ..
+
+echo Iniciando servicios en segundo plano...
+start /b cmd /c "cd ai_core && python nucleo_ia.py"
+ping 127.0.0.1 -n 4 > nul
+start /b cmd /c "cd ai_core\\whatsapp_service && node server.js"
+ping 127.0.0.1 -n 4 > nul
+start /b cmd /c "cd backend && node index.js"
+ping 127.0.0.1 -n 4 > nul
+start /b cmd /c "cd frontend && npm run dev"
+ping 127.0.0.1 -n 6 > nul
+
+echo Abriendo Dashboard...
+start http://localhost:3000
+"""
+    with open(launcher_path, "w", encoding="utf-8") as f:
+        f.write(launcher_content)
+    print("INICIAR_SAAS_IA.bat creado/actualizado.")
+
+    # 5. Configurar acceso directo en Carpeta de Inicio (Startup) de Windows para arranque automático
+    try:
+        startup_dir = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+        if os.path.exists(startup_dir):
+            startup_file = os.path.join(startup_dir, "SaaS_IA_Startup.bat")
+            with open(startup_file, 'w', encoding='utf-8') as sf:
+                sf.write(f'@echo off\ncd /d "{base_dir}"\nstart "" cmd /c "call INICIAR_SAAS_IA.bat"\n')
+            print(f"Configurado inicio automático en Windows Startup: {startup_file}")
+    except Exception as e:
+        print(f"No se pudo configurar el inicio automático: {e}")
+
 if __name__ == "__main__":
     sync()

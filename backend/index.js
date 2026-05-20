@@ -213,7 +213,7 @@ app.post('/api/copilot', authenticateToken, async (req, res) => {
             context,
             instance,
             userId: req.user.id
-        }, { timeout: 30000 });
+        }, { timeout: 90000 });
         
         res.json(response.data);
     } catch (error) {

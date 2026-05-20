@@ -11,7 +11,7 @@ interface SetupCopilotProps {
 
 export default function SetupCopilot({ activeTab, selectedChannel, onApplyAction }: SetupCopilotProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
+  const [messages, setMessages] = useState<{role: string, content: string, action?: any, applied?: boolean}[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -64,12 +64,12 @@ export default function SetupCopilot({ activeTab, selectedChannel, onApplyAction
       });
 
       if (res.data && res.data.message) {
-        setMessages(prev => [...prev, { role: 'assistant', content: res.data.message }]);
-        
-        // If the LLM returned an action to apply
-        if (res.data.action && onApplyAction) {
-          onApplyAction(res.data.action);
-        }
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: res.data.message, 
+          action: res.data.action,
+          applied: false
+        }]);
       } else {
         throw new Error("Respuesta inválida del servidor");
       }
@@ -117,6 +117,32 @@ export default function SetupCopilot({ activeTab, selectedChannel, onApplyAction
                       : 'bg-white/10 text-slate-200 rounded-bl-none border border-white/5'
                   }`}>
                     {m.content}
+                    {m.action && !m.applied && (
+                      <div className="mt-3 flex gap-2">
+                         <button 
+                            onClick={() => {
+                              if(onApplyAction) onApplyAction(m.action);
+                              setMessages(prev => prev.map((msg, idx) => idx === i ? {...msg, applied: true} : msg));
+                            }}
+                            className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                         >
+                            Aplicar Cambios
+                         </button>
+                         <button 
+                            onClick={() => {
+                              setMessages(prev => prev.map((msg, idx) => idx === i ? {...msg, applied: true} : msg));
+                            }}
+                            className="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                         >
+                            Descartar
+                         </button>
+                      </div>
+                    )}
+                    {m.applied && m.action && (
+                      <div className="mt-3 text-[10px] text-green-400 font-bold flex items-center gap-1">
+                        <Sparkles size={10} /> Cambios Aplicados
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

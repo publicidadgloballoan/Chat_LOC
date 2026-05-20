@@ -443,6 +443,40 @@ export default function DashboardPage() {
     } catch (e: any) { alert("Error al guardar/desplegar: " + e.message); }
   };
 
+  const handleDeleteFlow = async () => {
+    if (!selectedFlow || !selectedFlow.name) return;
+    if (!confirm(`¿Estás seguro de que deseas eliminar el flujo "${selectedFlow.name}"?`)) return;
+    
+    try {
+      const token = localStorage.getItem('PICE SaaS_token');
+      const apiHost = window.location.hostname;
+      
+      await axios.delete(`http://${apiHost}:4000/api/flows/${selectedFlow.name}`, {
+        params: { companyId: selectedCompany?.id },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      alert(`Flujo "${selectedFlow.name}" eliminado con éxito.`);
+      
+      // Actualizar la lista local
+      const resFlows = await axios.get(`http://${apiHost}:4000/api/flows`, {
+        params: { companyId: selectedCompany?.id },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setFlows(resFlows.data);
+      
+      // Seleccionar el primer flujo de la lista o resetear
+      if (resFlows.data.length > 0) {
+        setSelectedFlow(resFlows.data[0].content);
+      } else {
+        setSelectedFlow(null);
+      }
+    } catch (e: any) {
+      console.error("Error deleting flow:", e.message || e);
+      alert(`Error al eliminar flujo: ${e.response?.data?.error || e.message}`);
+    }
+  };
+
 
   useEffect(() => {
     let interval: any;
@@ -581,7 +615,9 @@ export default function DashboardPage() {
       const currentFlow = flowRef.current || { nodes: [], edges: [] };
       const newNodes = (currentFlow.nodes || []).map((n: any) => {
         if (n.id === draggingNode.id) {
-          return { ...n, position: { x: n.position.x + e.movementX / flowScale, y: n.position.y + e.movementY / flowScale } };
+          const px = n.position?.x ?? 0;
+          const py = n.position?.y ?? 0;
+          return { ...n, position: { x: px + e.movementX / flowScale, y: py + e.movementY / flowScale } };
         }
         return n;
       });
@@ -809,23 +845,39 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex gap-4">
-                 <button 
-                   onClick={() => setSelectedFlow({ name: 'nuevo_flujo', nodes: [], edges: [] })}
-                   className="bg-white/5 border border-white/10 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
-                 >
-                   + NUEVO
-                 </button>
-                 <select 
-                   value={selectedFlow?.name || ''}
-                   className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs font-bold text-white outline-none"
-                   onChange={(e) => {
-                     const f = flows.find(fl => fl.name === e.target.value);
-                     if (f) setSelectedFlow(f.content);
-                   }}
-                 >
-                    <option value="" disabled>Seleccionar Flujo</option>
-                    {flows.map(f => <option key={f.name} value={f.name}>{f.name.toUpperCase()}.FLU</option>)}
-                 </select>
+                  <button 
+                    onClick={() => setSelectedFlow({ name: 'nuevo_flujo', nodes: [], edges: [] })}
+                    className="bg-white/5 border border-white/10 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
+                  >
+                    + NUEVO
+                  </button>
+                  
+                 <div className="relative">
+                   <select 
+                     value={selectedFlow?.name || ''}
+                     className="appearance-none bg-slate-900 border border-white/20 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-white outline-none cursor-pointer hover:border-sky-500/50 transition-all min-w-[200px]"
+                     style={{ colorScheme: 'dark' }}
+                     onChange={(e) => {
+                       const f = flows.find(fl => fl.name === e.target.value);
+                       if (f) setSelectedFlow(f.content);
+                     }}
+                   >
+                      <option value="" disabled style={{background:'#0f172a', color:'#64748b'}}>Seleccionar Flujo</option>
+                      {flows.map(f => <option key={f.name} value={f.name} style={{background:'#0f172a', color:'white'}}>{f.name.toUpperCase()}.FLU</option>)}
+                   </select>
+                   <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                 </div>
+
+                 {selectedFlow && selectedFlow.name && (
+                    <button 
+                      onClick={handleDeleteFlow}
+                      className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 rounded-xl hover:bg-red-500/20 transition-all flex items-center justify-center"
+                      title="Eliminar Flujo"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                 )}
+
                  <button 
                    onClick={handleSaveFlow}
                    className="bg-sky-500 hover:bg-sky-400 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all"
@@ -880,10 +932,10 @@ export default function DashboardPage() {
                               const targetNode = currentFlow.nodes.find((n:any) => n.id === edge.target);
                               if (!sourceNode || !targetNode) return null;
                               
-                              const x1 = sourceNode.position.x + 250;
-                              const y1 = sourceNode.position.y + 60;
-                              const x2 = targetNode.position.x;
-                              const y2 = targetNode.position.y + 60;
+                              const x1 = (sourceNode.position?.x ?? 0) + 250;
+                              const y1 = (sourceNode.position?.y ?? 0) + 60;
+                              const x2 = targetNode.position?.x ?? 0;
+                              const y2 = (targetNode.position?.y ?? 0) + 60;
                               
                               const cp1x = x1 + (x2 - x1) / 2;
                               const cp2x = x1 + (x2 - x1) / 2;
@@ -912,12 +964,12 @@ export default function DashboardPage() {
                              key={node.id}
                              onMouseDown={(e) => { e.stopPropagation(); setDraggingNode(node); setSelectedElement({id: node.id, type: 'node'}); }}
                              className={`absolute w-[250px] bg-gradient-to-br ${getNodeColor(node.type)} p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl space-y-4 group/node cursor-move pointer-events-auto ${connectingNode === node.id ? 'ring-2 ring-sky-500 animate-pulse' : ''} ${selectedElement?.id === node.id ? 'border-sky-500 ring-2 ring-sky-500/50' : 'border-white/10'}`}
-                             style={{ left: node.position.x, top: node.position.y }}
+                             style={{ left: node.position?.x ?? 0, top: node.position?.y ?? 0 }}
                            >
                               <div className="flex items-center justify-between pointer-events-none">
                                  <div className="flex items-center gap-3">
                                     {getNodeIcon(node.type)}
-                                    <span className="text-[10px] font-black uppercase tracking-tighter">{node.name}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-tighter">{node.name || node.data?.label || node.type}</span>
                                  </div>
                                  <button 
                                    onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}
@@ -926,7 +978,7 @@ export default function DashboardPage() {
                                     <Trash2 size={12} />
                                  </button>
                               </div>
-                              <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed pointer-events-none">{node.description}</p>
+                              <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed pointer-events-none">{node.description || node.data?.label || ''}</p>
                               <div className="pt-4 border-t border-white/5 flex justify-between items-center pointer-events-auto">
                                  <span className="text-[8px] font-black opacity-50 uppercase">Configurar</span>
                                  <button 
@@ -2958,26 +3010,112 @@ export default function DashboardPage() {
       <SetupCopilot 
         activeTab={activeTab} 
         selectedChannel={selectedChannel} 
+        currentConfig={
+          activeTab === 'Flujos IA' ? selectedFlow :
+          activeTab === 'Botones A1' ? configs?.a1 :
+          activeTab === 'Tickets A3' ? configs?.a3 :
+          activeTab === 'Identidad & Misión' ? structuredKnowledge?.identity :
+          null
+        }
         onApplyAction={async (actionObj: any) => {
           console.log("[Copilot Action]", actionObj);
           
           let payloadToSave = { ...actionObj, instance: selectedChannel?.instanceName };
+          let skipFetch = false;
 
           if (actionObj.action === 'save_config') {
             if (actionObj.type === 'flow') {
-              setSelectedFlow(actionObj.config);
-            } else if (actionObj.type === 'a1') {
-              // Normalize LLM output format to UI format
-              if (actionObj.config.menuOptions && !actionObj.config.opciones_menu) {
-                actionObj.config.opciones_menu = actionObj.config.menuOptions;
-                delete actionObj.config.menuOptions;
+              // La IA genera un flow completo — normalizar nodos y navegar al editor
+              const generatedFlow = actionObj.config;
+              if (!generatedFlow.name) generatedFlow.name = `flujo_copilot_${Date.now()}`;
+              
+              // Normalizar: la IA manda data.label pero el renderer usa node.name
+              if (generatedFlow.nodes) {
+                generatedFlow.nodes = generatedFlow.nodes.map((n: any, index: number) => {
+                  const defaultX = index * 320 + 50;
+                  const defaultY = 200;
+                  const pos = n.position && typeof n.position.x === 'number' && typeof n.position.y === 'number'
+                    ? n.position
+                    : { x: defaultX, y: defaultY };
+                  return {
+                    ...n,
+                    name: n.name || n.data?.label || n.type || 'Nodo',
+                    description: n.description || n.data?.label || '',
+                    position: pos,
+                    data: {
+                      ...n.data,
+                      label: n.name || n.data?.label || n.type || 'Nodo'
+                    }
+                  };
+                });
               }
               
-              setConfigs((prev: any) => {
-                const newA1 = { ...(prev.a1 || {}), ...actionObj.config };
-                payloadToSave.config = newA1;
-                return { ...prev, a1: newA1 };
+              // Agregar al array de flows para que aparezca en el selector
+              setFlows((prev: any[]) => {
+                const exists = prev.find(f => f.name === generatedFlow.name);
+                if (exists) {
+                  return prev.map(f => f.name === generatedFlow.name ? { ...f, content: generatedFlow } : f);
+                }
+                return [...prev, { name: generatedFlow.name, content: generatedFlow }];
               });
+              
+              setSelectedFlow(generatedFlow);
+              setActiveTab('Flujos IA');
+              skipFetch = true;
+
+              // Guardar de manera persistente como archivo .flu en el repositorio de flujos de Express
+              (async () => {
+                try {
+                  const token = localStorage.getItem('PICE SaaS_token');
+                  const apiHost = window.location.hostname;
+                  await axios.post(`http://${apiHost}:4000/api/flows/save`, {
+                    name: generatedFlow.name,
+                    flow: generatedFlow,
+                    companyId: selectedCompany?.id
+                  }, { headers: { Authorization: `Bearer ${token}` } });
+                  
+                  // Volver a listar los flujos desde el backend para confirmar y actualizar el selector
+                  const resFlows = await axios.get(`http://${apiHost}:4000/api/flows`, {
+                    params: { companyId: selectedCompany?.id },
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  setFlows(resFlows.data);
+                  console.log("[Copilot Flow Save] Guardado exitoso del .flu en repositorio:", generatedFlow.name);
+                } catch (e: any) {
+                  console.error("[Copilot Flow Save] Error guardando flujo .flu:", e.message || e);
+                }
+              })();
+
+            } else if (actionObj.type === 'a1') {
+              // Normalizar: la IA puede mandar `menuOptions`, `opciones_menu`, o `options`
+              let opciones = actionObj.config.opciones_menu 
+                || actionObj.config.menuOptions 
+                || actionObj.config.options 
+                || [];
+              // Normalizar claves de cada opción: trigger->numero, referencia->respuesta, nombre OK
+              opciones = opciones.map((o: any, idx: number) => ({
+                numero: o.numero ?? o.trigger ?? String(idx + 1),
+                nombre: o.nombre ?? o.name ?? `Opción ${idx + 1}`,
+                respuesta: o.respuesta ?? o.referencia ?? o.response ?? ''
+              }));
+              const newA1 = { ...(configs?.a1 || {}), ...actionObj.config, opciones_menu: opciones };
+              // Limpiar claves alternativas
+              delete newA1.menuOptions; delete newA1.options;
+              setConfigs((prev: any) => ({ ...prev, a1: newA1 }));
+              payloadToSave.config = newA1;
+              skipFetch = true; // NO fetchData — evita resetear la UI
+            } else if (actionObj.type === 'a3') {
+              // Normalizar templates de A3
+              let templates = actionObj.config.templates || actionObj.config.fields || [];
+              templates = templates.map((t: any) => ({
+                nombre: t.nombre ?? t.name ?? t.field ?? 'Campo',
+                tipo: t.tipo ?? t.type ?? 'Texto'
+              }));
+              const instrucciones = actionObj.config.instrucciones_ia ?? actionObj.config.instructions ?? configs?.a3?.instrucciones_ia ?? '';
+              const newA3 = { ...(configs?.a3 || {}), templates, instrucciones_ia: instrucciones };
+              setConfigs((prev: any) => ({ ...prev, a3: newA3 }));
+              payloadToSave.config = newA3;
+              skipFetch = true;
             }
           } else if (actionObj.action === 'save_knowledge') {
             if (actionObj.type === 'identity') {
@@ -2985,13 +3123,15 @@ export default function DashboardPage() {
             }
           }
           
-          // Wait a tiny bit for state to settle, then save
+          // Guardar en backend con un pequeño delay para que el state se asiente
           setTimeout(async () => {
              await handleAction(payloadToSave.action, payloadToSave);
-             if (activeTab !== 'Flujos IA') {
+             // Solo refrescar si no era una acción local de config (evita resetear UI)
+             if (!skipFetch) {
                fetchData();
              }
-          }, 100);
+          }, 150);
+
         }} 
       />
     </div>

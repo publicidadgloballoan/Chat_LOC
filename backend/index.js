@@ -204,7 +204,7 @@ app.get('/api/activity', authenticateToken, async (req, res) => {
 // --- SETUP COPILOT ---
 app.post('/api/copilot', authenticateToken, async (req, res) => {
     try {
-        const { message, history, context, instance } = req.body;
+        const { message, history, context, instance, currentConfig } = req.body;
         console.log(`[COPILOT] Request from ${req.user.name} for context: ${context}`);
         
         // Proxy to Python Nucleo IA
@@ -213,6 +213,7 @@ app.post('/api/copilot', authenticateToken, async (req, res) => {
             history,
             context,
             instance,
+            currentConfig,
             userId: req.user.id
         }, { timeout: 90000 });
         
@@ -751,6 +752,9 @@ app.post('/api/admin/companies', authenticateToken, async (req, res) => {
         });
 
         console.log(`[COMPANY] ✅ Nueva empresa creada: ${businessName} (licencia: ${licenseToken.substring(0,12)}...)`);
+        
+        // Sincronizar licencia asíncronamente con Nucleo IA
+        syncLicenseWithNucleo().catch(err => console.error('[SYNC-ERR]', err.message));
 
         res.status(201).json({ 
             success: true, 
@@ -810,6 +814,9 @@ app.get('/api/license/status', authenticateToken, async (req, res) => {
         try {
             const r = await axios.get(`${LICENSE_SERVER}/api/status/${tokenToVerify}`, { timeout: 5000 });
             console.log(`[LICENSE] Step 3: Server response:`, r.data);
+            // Sincronizar licencia asíncronamente con Nucleo IA
+            syncLicenseWithNucleo().catch(err => console.error('[SYNC-ERR]', err.message));
+            
             res.json({
                 status: r.data.valid ? 'active' : 'blocked',
                 company_name: r.data.company_name || company?.businessName || localData.company_name,
@@ -820,6 +827,9 @@ app.get('/api/license/status', authenticateToken, async (req, res) => {
                     `⚠️ Suscripción vence en ${r.data.days_remaining} días` : null)
             });
         } catch (e) {
+            // Sincronizar licencia asíncronamente con Nucleo IA
+            syncLicenseWithNucleo().catch(err => console.error('[SYNC-ERR]', err.message));
+
             // Modo offline: usar datos locales
             res.json({
                 status: 'offline',
@@ -997,6 +1007,25 @@ app.post('/api/flows/save', authenticateToken, (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.delete('/api/flows/:name', authenticateToken, (req, res) => {
+    try {
+        const { name } = req.params;
+        const companyId = req.query.companyId || req.user.companyId;
+        const flowsDir = getFlowsDir(companyId);
+        const filePath = path.join(flowsDir, `${name}.flu`);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`[FLOWS] Deleted flow file: ${filePath}`);
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'El flujo no existe' });
+        }
+    } catch (e) {
+        console.error(`[FLOWS] DELETE Error:`, e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 
 // ============================================================
 // MÓDULO 9: ADMINISTRACIÓN DE LICENCIAS (Solo Superadmin)
@@ -1168,11 +1197,44 @@ async function syncWhatsappInstances() {
     }
 }
 
+async function syncLicenseWithNucleo() {
+    try {
+        console.log('[LICENSE-SYNC] Sincronizando licencia con Nucleo IA...');
+        // Buscar la primera compañía con licencia
+        const company = await prisma.saaSCompany.findFirst({
+            where: {
+                licenseToken: { not: '' }
+            }
+        });
+        
+        const licenseToken = company?.licenseToken || process.env.LICENSE_TOKEN;
+        const licenseServer = process.env.LICENSE_SERVER || 'http://127.0.0.1:7000';
+        
+        if (licenseToken) {
+            console.log(`[LICENSE-SYNC] Enviando licencia a Nucleo IA (Server: ${licenseServer}, Token: ${licenseToken.substring(0, 12)}...)`);
+            await axios.post('http://127.0.0.1:5000/api/config_license', {
+                license_server: licenseServer,
+                license_token: licenseToken
+            }, { timeout: 5000 });
+            console.log('[LICENSE-SYNC] ✅ Licencia sincronizada con éxito.');
+        } else {
+            console.log('[LICENSE-SYNC] No se encontró un token de licencia para sincronizar.');
+        }
+    } catch (err) {
+        console.error('[LICENSE-SYNC ERROR] Falló sincronización con Nucleo IA:', err.message);
+    }
+}
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Orchestrator running on http://0.0.0.0:${PORT}`);
-    // Sincronizar después de 10 segundos de iniciar el servidor
+    // Sincronizar instancias de whatsapp después de 10 segundos
     setTimeout(syncWhatsappInstances, 10000);
-    // Y cada 5 minutos
     setInterval(syncWhatsappInstances, 300000);
+    
+    // Sincronizar licencia con Nucleo IA después de 5 segundos
+    setTimeout(syncLicenseWithNucleo, 5000);
+    // Y sincronizar periódicamente cada 5 minutos
+    setInterval(syncLicenseWithNucleo, 300000);
 });
+
 

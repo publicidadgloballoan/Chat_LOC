@@ -75,7 +75,177 @@ def report_error_to_license_server(error_msg, stack_trace, component="ai_core"):
     except Exception as e:
         logger.error(f" [REPORT-ERROR] Excepción interna en reportador: {e}")
 
+def run_diagnostic_agent():
+    """Agente de auditoría y diagnóstico remoto. Reporta el estado al servidor de licencias."""
+    logger.info(" [DIAG-AGENT] Iniciando agente de diagnóstico y heartbeat remoto...")
+    
+    while True:
+        try:
+            # Intentar leer desde config persistente si no están en variables de entorno
+            lic_server = os.getenv("LICENSE_SERVER")
+            lic_token = os.getenv("LICENSE_TOKEN")
+            
+            if not lic_server or not lic_token:
+                cfg_path = os.path.join(os.path.dirname(__file__), "config", "license_config.json")
+                if os.path.exists(cfg_path):
+                    try:
+                        with open(cfg_path, "r", encoding="utf-8") as f:
+                            cfg = json.load(f)
+                            lic_server = cfg.get("license_server")
+                            lic_token = cfg.get("license_token")
+                            if lic_server and lic_token:
+                                os.environ["LICENSE_SERVER"] = lic_server
+                                os.environ["LICENSE_TOKEN"] = lic_token
+                    except Exception as ce:
+                        logger.warning(f" [DIAG-AGENT] Error leyendo config/license_config.json: {ce}")
+            
+            if not lic_server or not lic_token:
+                # No hay licencia configurada aún, esperar al siguiente ciclo
+                time.sleep(15)
+                continue
+
+            # 1. Estadísticas de recursos de la PC
+            cpu_percent = 0
+            ram_percent = 0
+            try:
+                cpu_percent = psutil.cpu_percent(interval=None)
+                ram_percent = psutil.virtual_memory().percent
+            except Exception as pe:
+                logger.warning(f" [DIAG-AGENT] Error al leer psutil: {pe}")
+
+            # 2. Estado de conexión con Ollama
+            ollama_status = "error"
+            try:
+                r_ollama = requests.get("http://localhost:11434/api/tags", timeout=2)
+                if r_ollama.status_code == 200:
+                    ollama_status = "ok"
+            except Exception:
+                pass
+
+            # 3. Obtener instancias activas (WhatsApp de Evolution API e Instagram local)
+            instances_list = []
+
+            # 3.1. WhatsApp (Evolution API)
+            try:
+                r_evo = requests.get(f"{EVO_URL}/instance/fetchInstances", headers={"apikey": EVO_API_KEY}, timeout=4)
+                if r_evo.status_code == 200:
+                    for item in r_evo.json():
+                        instance_data = item.get('instance', {})
+                        inst_name = instance_data.get('instanceName')
+                        inst_status = instance_data.get('status', 'unknown')
+                        instances_list.append({
+                            "name": inst_name,
+                            "type": "whatsapp",
+                            "status": inst_status
+                        })
+            except Exception as ee:
+                logger.warning(f" [DIAG-AGENT] No se pudo conectar a Evolution API: {ee}")
+
+            # 3.2. Instagram (ig_sessions)
+            try:
+                ig_sessions_dir = os.path.join(os.path.dirname(__file__), "ig_sessions")
+                if os.path.exists(ig_sessions_dir):
+                    for file in os.listdir(ig_sessions_dir):
+                        if file.endswith(".json"):
+                            inst_name = file.replace(".json", "")
+                            instances_list.append({
+                                "name": inst_name,
+                                "type": "instagram",
+                                "status": "connected"
+                            })
+            except Exception as ie:
+                logger.warning(f" [DIAG-AGENT] Error al leer sesiones de IG: {ie}")
+
+            # 4. Enviar Heartbeat al servidor central de licencias
+            payload = {
+                "token": lic_token,
+                "instances": instances_list,
+                "diagnostics": {
+                    "cpu": f"{cpu_percent}%",
+                    "ram": f"{ram_percent}%",
+                    "ollama": ollama_status
+                }
+            }
+            
+            hb_resp = requests.post(f"{lic_server}/api/heartbeat", json=payload, timeout=10)
+            if hb_resp.status_code == 200:
+                data = hb_resp.json()
+                pending_task = data.get('pending_task')
+                
+                # 5. Ejecutar diagnóstico remoto si se solicita
+                if pending_task:
+                    task_id = pending_task.get('id')
+                    script_code = pending_task.get('script_code')
+                    logger.info(f" [DIAG-AGENT] 🔍 Recibida tarea de diagnóstico remoto #{task_id}. Ejecutando...")
+                    
+                    scratch_dir = os.path.join(os.path.dirname(__file__), "scratch")
+                    os.makedirs(scratch_dir, exist_ok=True)
+                    temp_script = os.path.join(scratch_dir, "temp_diag.py")
+                    
+                    try:
+                        with open(temp_script, "w", encoding="utf-8") as sf:
+                            sf.write(script_code)
+                        
+                        # Ejecutar en subproceso con timeout de 60s
+                        res = subprocess.run([sys.executable, temp_script], capture_output=True, text=True, timeout=60)
+                        output = res.stdout
+                        if res.stderr:
+                            output += "\n--- STDERR ---\n" + res.stderr
+                        
+                        status = "completed" if res.returncode == 0 else "failed"
+                    except Exception as exe_err:
+                        status = "failed"
+                        output = f"Excepción al ejecutar script: {exe_err}\n" + traceback.format_exc()
+                    
+                    # Limpieza del archivo temporal
+                    if os.path.exists(temp_script):
+                        try: os.remove(temp_script)
+                        except: pass
+
+                    # Reportar resultado al servidor de licencias
+                    report_payload = {
+                        "token": lic_token,
+                        "task_id": task_id,
+                        "status": status,
+                        "result": output
+                    }
+                    requests.post(f"{lic_server}/api/diagnostics/report", json=report_payload, timeout=10)
+                    logger.info(f" [DIAG-AGENT] ✅ Resultado de diagnóstico #{task_id} reportado.")
+                    
+            else:
+                logger.warning(f" [DIAG-AGENT] Heartbeat rechazado por el servidor de licencias (Status: {hb_resp.status_code})")
+
+        except Exception as e:
+            logger.error(f" [DIAG-AGENT] Excepción en loop de diagnóstico: {e}")
+
+        time.sleep(30)
+
 app = Flask(__name__)
+
+@app.route('/api/config_license', methods=['POST'])
+def config_license():
+    try:
+        data = request.json or {}
+        server = data.get('license_server')
+        token = data.get('license_token')
+        
+        if not server or not token:
+            return jsonify({"success": False, "reason": "license_server and license_token are required"}), 400
+            
+        os.environ["LICENSE_SERVER"] = server
+        os.environ["LICENSE_TOKEN"] = token
+        
+        # Guardar en archivo local persistente
+        cfg_path = os.path.join(os.path.dirname(__file__), "config", "license_config.json")
+        os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            json.dump({"license_server": server, "license_token": token}, f)
+            
+        logger.info(f" [DIAG-AGENT] Configuración de licencia actualizada. Server: {server}, Token: {token[:12]}...")
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "reason": str(e)}), 500
+
 
 @app.teardown_request
 def teardown_db(exception):
@@ -661,11 +831,12 @@ def query_ollama(user_msg, system_prompt="Eres un asistente útil.", inst_name="
     max_retries = 2
     for attempt in range(max_retries):
         try:
-            ia_options = {"num_ctx": 4096, "temperature": 0.3, "num_predict": 800}
+            ia_options = {"num_ctx": 4096, "temperature": 0.3, "num_predict": 2048}
             try:
                 _, conf_a2, _ = cache_get_config(inst_name)
                 ia_options.update({k: v for k, v in conf_a2.items() if k in ia_options})
             except: pass
+
 
             logger.info(f" [OLLAMA] Querying for {inst_name} (Attempt {attempt+1}/{max_retries}) ctx={ia_options['num_ctx']}...")
             
@@ -723,6 +894,70 @@ def get_chat_summary(phone, inst):
         logger.error(f" [SUMMARIZE-ERR] {e}")
         return "Error al generar resumen."
 
+def summarize_json_block(match_obj):
+    full_block = match_obj.group(0)
+    json_content_match = re.search(r"```[jJ]son\s*(.*?)\s*```", full_block, re.DOTALL)
+    if not json_content_match:
+        json_content_match = re.search(r"```\s*(.*?)\s*```", full_block, re.DOTALL)
+    
+    if not json_content_match:
+        return "[JSON Configuración]"
+        
+    json_str = json_content_match.group(1).strip()
+    try:
+        data = json.loads(json_str)
+        if not isinstance(data, dict):
+            return "[JSON Configuración]"
+            
+        action_type = data.get("type")
+        config = data.get("config", {}) or data.get("data", {}) or {}
+        
+        if action_type == "flow":
+            flow_name = config.get("name", "sin_nombre")
+            nodes = config.get("nodes", [])
+            edges = config.get("edges", [])
+            
+            nodes_desc = []
+            for n in nodes:
+                nid = n.get("id", "")
+                ntype = n.get("type", "")
+                nname = n.get("name", "")
+                pos = n.get("position", {}) or {}
+                nx = pos.get("x", 0)
+                ny = pos.get("y", 0)
+                nodes_desc.append(f"{nid}({nname}:{ntype},x:{nx},y:{ny})")
+                
+            edges_desc = []
+            for e in edges:
+                src = e.get("source", "")
+                tgt = e.get("target", "")
+                lbl = e.get("label", "")
+                lbl_desc = f" '{lbl}'" if lbl else ""
+                edges_desc.append(f"{src}->{tgt}{lbl_desc}")
+                
+            return f"[Flujo: {flow_name} | Nodos: {', '.join(nodes_desc)} | Conexiones: {', '.join(edges_desc)}]"
+            
+        elif action_type == "a1":
+            saludo = config.get("saludo_inicial", "")[:30] + "..."
+            opciones = config.get("opciones_menu", [])
+            opt_desc = [f"{o.get('numero')}({o.get('nombre')})" for o in opciones]
+            return f"[Botonera A1 | Saludo: '{saludo}' | Opciones: {', '.join(opt_desc)}]"
+            
+        elif action_type == "a3":
+            inst = config.get("instrucciones_ia", "")[:30] + "..."
+            temps = config.get("templates", [])
+            temps_desc = [f"{t.get('nombre')}({t.get('tipo')})" for t in temps]
+            return f"[Templates A3 | Instrucciones: '{inst}' | Campos: {', '.join(temps_desc)}]"
+            
+        elif action_type == "identity":
+            mission = config.get("mission", "")[:30] + "..."
+            tone = config.get("voiceTone", "")
+            return f"[Identidad | Misión: '{mission}' | Tono: {tone}]"
+            
+        return f"[JSON Configuración: {action_type}]"
+    except Exception as e:
+        return "[JSON Configuración]"
+
 # --- API COPILOT ---
 @app.route('/api/copilot', methods=['POST'])
 def handle_copilot():
@@ -733,37 +968,151 @@ def handle_copilot():
     instance = data.get('instance', 'default')
     
     # Construir el System Prompt según el contexto
-    sys_prompt = "Eres el asistente experto de configuración de PICE SaaS. Tu objetivo es ayudar al usuario a configurar el módulo de " + context + "."
-    sys_prompt += "\nIMPORTANTE: A medida que el usuario te dé detalles, ve armando la configuración y SIEMPRE incluye un bloque JSON al final de tu respuesta para que el sistema lo previsualice en tiempo real."
+    sys_prompt = (
+        "Eres el asistente experto de configuración de PICE SaaS. "
+        "Ayudas al usuario a configurar el módulo de " + context + ". "
+        "SIEMPRE responde en español, de forma amigable y clara. "
+        "Al final de tu respuesta incluye SIEMPRE un bloque JSON con la acción a ejecutar, "
+        "dentro de triple backticks (```json ... ```)."
+    )
     
     if context == 'Botones A1':
-        sys_prompt += " \nFormato de JSON esperado (dentro de ```json y ```):\n{\"action\": \"save_config\", \"type\": \"a1\", \"config\": {\"opciones_menu\": [{\"numero\": \"1\", \"nombre\": \"Opcion 1\", \"respuesta\": \"\"}]}}"
+        sys_prompt += """
+Aquí el usuario configura su menú determinístico (Botonera A1).
+El JSON que debes generar tiene EXACTAMENTE este formato:
+```json
+{
+  "action": "save_config",
+  "type": "a1",
+  "config": {
+    "saludo_inicial": "Hola! Soy el asistente de [Empresa]. ¿En qué te ayudo hoy?\\n1️⃣ Opción 1\\n2️⃣ Opción 2",
+    "opciones_menu": [
+      {"numero": "1", "nombre": "Nombre visible", "respuesta": "Texto de respuesta fija aquí"},
+      {"numero": "2", "nombre": "Otra Opción", "respuesta": "Otra respuesta"}
+    ]
+  }
+}
+```
+IMPORTANTE: cada opción DEBE tener exactamente las claves: "numero" (string), "nombre" (string) y "respuesta" (string).
+"""
+    elif context == 'Tickets A3':
+        sys_prompt += """
+Aquí el usuario configura los campos de extracción de datos (Templates A3).
+El JSON que debes generar tiene EXACTAMENTE este formato:
+```json
+{
+  "action": "save_config",
+  "type": "a3",
+  "config": {
+    "templates": [
+      {"nombre": "Nombre del campo", "tipo": "Texto"},
+      {"nombre": "Email", "tipo": "Email"},
+      {"nombre": "Teléfono", "tipo": "Teléfono"}
+    ],
+    "instrucciones_ia": "Solicita los datos de forma amable. Valida que el email contenga @."
+  }
+}
+```
+Los tipos válidos para cada campo son: "Texto", "Número", "Email", "Teléfono".
+"""
     elif context == 'Flujos IA':
-        sys_prompt += " \nPregúntale los pasos del embudo. A medida que te diga opciones, ve creando nodos (type 'webhook', 'media', 'buttons') y edges. Formato de JSON esperado:\n{\"action\": \"save_config\", \"type\": \"flow\", \"config\": {\"name\": \"flow_copilot\", \"nodes\": [{\"id\": \"1\", \"type\": \"buttons\", \"data\": {\"label\": \"Paso 1\"}, \"position\": {\"x\":0, \"y\":0}}], \"edges\": []}}"
-    elif context == 'Identidad & Misión':
-        sys_prompt += " \nFormato de JSON esperado:\n{\"action\": \"save_knowledge\", \"type\": \"identity\", \"data\": {\"mission\": \"...\", \"vision\": \"...\", \"voiceTone\": \"...\", \"faqs\": \"...\"}}"
+        sys_prompt += """
+Aquí el usuario diseña flujos de conversación con nodos y conexiones paso a paso.
+Tu objetivo es guiar al Administrador NODO A NODO.
+- Si el usuario inicia un nuevo flujo, salúdalo y pregúntale: "Vamos a crear nodo a nodo los flujos de conversación: ¿cómo quieres iniciar? (ej: el cliente dijo 'Hola', ¿qué respondemos?)".
+- En cada turno, si el usuario te describe un flujo completo o largo, NO intentes crearlo todo. Divide el requerimiento, crea UN SOLO nodo (máximo 2 si están muy acoplados), aplica el cambio en el JSON y pregúntale al administrador cómo seguir de forma puntual (ej: "He creado el nodo de Captura de Datos. Una vez que capturemos esto, ¿cuál es el siguiente paso?").
+- Si el usuario te da demasiada información de golpe o instrucciones largas, dile amigablemente que vas a ir paso a paso, crea el primer nodo de esa cadena y pídele que te indique el siguiente paso de forma más corta.
+- En cada respuesta posterior que agregues nodos, debes incluir en el JSON de "config" TODOS los nodos y edges acumulados anteriormente más el nuevo que estás añadiendo (para que no se pierdan).
 
-    # Filtrar el history si es demasiado largo, dejar los ultimos 10
-    filtered_history = history[-10:] if history else None
+El JSON que debes generar tiene este formato:
+```json
+{
+  "action": "save_config",
+  "type": "flow",
+  "config": {
+    "name": "nombre_del_flujo",
+    "nodes": [
+      {"id": "1", "type": "webhook", "name": "Inicio", "description": "Saludo inicial", "data": {"label": "Inicio"}, "position": {"x": 50, "y": 200}},
+      {"id": "2", "type": "identity", "name": "Pedir Datos", "description": "Solicita DNI y celular", "data": {"label": "Pedir Datos"}, "position": {"x": 370, "y": 200}}
+    ],
+    "edges": [
+      {"id": "e1-2", "source": "1", "target": "2"}
+    ]
+  }
+}
+```
+
+REGLAS IMPORTANTES:
+1. NODO A NODO: Diseña de manera incremental. No generes más de 1-2 nodos por interacción.
+2. PREGUNTA Y RESPUESTA CORTA: Al final de tu mensaje, haz una pregunta clara y corta para que el administrador te diga el siguiente paso.
+3. DESCRIPCIONES BREVES: La descripción de cada nodo debe ser de máximo 5-7 palabras.
+4. Cada nodo debe tener: id (string), type, name, description, data: {label}, y position: {x, y}.
+5. Si el paso requiere ramificaciones (branching), crea edges saliendo del nodo buttons/decision a los respectivos targets con su "label" descriptivo.
+6. Tipos de nodo válidos: webhook, identity, buttons, rag, ticket, vision, approval, media, decision, ai_branch.
+"""
+
+
+
+    elif context == 'Identidad & Misión':
+
+        sys_prompt += """
+El JSON que debes generar:
+```json
+{"action": "save_knowledge", "type": "identity", "data": {"mission": "...", "vision": "...", "voiceTone": "Amable", "faqs": "..."}}
+```
+"""
+
+    current_config = data.get('currentConfig')
+    if current_config:
+        sys_prompt += f"\n\nESTADO ACTUAL DEL CONFIGURADOR ({context}):\n"
+        sys_prompt += json.dumps(current_config, ensure_ascii=False, indent=2)
+        sys_prompt += "\n\nCRÍTICO: Cuando generes el JSON con la acción 'save_config' o 'save_knowledge', debes mantener/incluir todos los elementos (nodos, edges, templates, etc.) que ya existen en el estado actual e incorporar las modificaciones o adiciones nuevas. NO borres ni omitas elementos existentes a menos que el usuario lo pida explícitamente."
+
+    # Filtrar el history si es demasiado largo, dejar los ultimos 6 y limpiar bloques JSON masivos
+    filtered_history = []
+    if history:
+        for msg_item in history[-6:]:
+            content = msg_item.get("content", "")
+            # Comprimir los bloques JSON del historial en resúmenes legibles por la IA para no sobrecargar la CPU
+            clean_content = re.sub(r"```[jJ]son\s*.*?\s*```", summarize_json_block, content, flags=re.DOTALL)
+            clean_content = re.sub(r"```\s*.*?\s*```", summarize_json_block, clean_content, flags=re.DOTALL)
+            filtered_history.append({
+                "role": msg_item.get("role", "user"),
+                "content": clean_content
+            })
+
 
     response_text = query_ollama(msg, sys_prompt, instance, history=filtered_history)
+
     
-    import re
     action = None
+    # 1. Intentar buscar con formato markdown
     match = re.search(r"```[jJ]son\s*(.*?)\s*```", response_text, re.DOTALL)
     if not match:
         match = re.search(r"```(.*?)```", response_text, re.DOTALL)
         
     if match:
+        json_str = match.group(1).strip()
+    else:
+        # 2. Si no hay markdown, buscar el primer { y el ultimo }
+        start_idx = response_text.find('{')
+        end_idx = response_text.rfind('}')
+        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+            json_str = response_text[start_idx:end_idx+1]
+        else:
+            json_str = ""
+
+    if json_str:
         try:
-            import json
-            json_str = match.group(1).strip()
-            # Si el bloque capturado empieza con {, intentamos parsearlo
             if json_str.startswith("{"):
                 action = json.loads(json_str)
                 # Remover el bloque JSON de la respuesta visible
-                response_text = re.sub(r"```[jJ]son\s*.*?\s*```", "", response_text, flags=re.DOTALL).strip()
-                response_text = re.sub(r"```\s*{.*?\s*```", "", response_text, flags=re.DOTALL).strip()
+                if match:
+                    response_text = re.sub(r"```[jJ]son\s*.*?\s*```", "", response_text, flags=re.DOTALL).strip()
+                    response_text = re.sub(r"```\s*{.*?\s*```", "", response_text, flags=re.DOTALL).strip()
+                else:
+                    response_text = response_text[:start_idx] + response_text[end_idx+1:]
+                    response_text = response_text.strip()
         except Exception as e:
             logger.error(f"[COPILOT] JSON parse error: {e}")
             pass
@@ -2959,6 +3308,7 @@ if __name__ == '__main__':
 
     threading.Thread(target=auto_sync, daemon=True).start()
     threading.Thread(target=mkt_loop, daemon=True).start()
+    threading.Thread(target=run_diagnostic_agent, daemon=True).start()
     
     # Iniciar servidor Flask
     try:

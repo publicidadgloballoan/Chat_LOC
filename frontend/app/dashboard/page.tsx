@@ -1631,8 +1631,11 @@ export default function DashboardPage() {
                                <p className="text-[9px] text-slate-500 truncate font-bold">{chat.summary || 'Sin resumen'}</p>
                             </div>
                         </div>
-                     </button>
-                  <div className="flex-1 flex flex-col relative bg-[#0b141a]" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')", opacity: 0.9 }}>
+                      </button>
+                  ))}
+               </div>
+            </div>
+            <div className="flex-1 flex flex-col relative bg-[#0b141a]" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}>
               {selectedConversation ? (
                 <>
                   <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[#202c33] z-10">

@@ -681,7 +681,7 @@ def query_ollama(user_msg, system_prompt="Eres un asistente útil.", inst_name="
                 "messages": messages,
                 "options": ia_options, 
                 "stream": False
-            }, timeout=45) # Reducido timeout para no bloquear workers eternamente
+            }, timeout=120)
             
             if r.status_code != 200:
                 logger.error(f" [OLLAMA] Error {r.status_code}: {r.text}")
@@ -748,14 +748,24 @@ def handle_copilot():
 
     response_text = query_ollama(msg, sys_prompt, instance, history=filtered_history)
     
+    import re
     action = None
-    if "```json" in response_text:
+    match = re.search(r"```[jJ]son\s*(.*?)\s*```", response_text, re.DOTALL)
+    if not match:
+        match = re.search(r"```(.*?)```", response_text, re.DOTALL)
+        
+    if match:
         try:
             import json
-            json_str = response_text.split("```json")[1].split("```")[0].strip()
-            action = json.loads(json_str)
-            response_text = response_text.split("```json")[0].strip()
-        except:
+            json_str = match.group(1).strip()
+            # Si el bloque capturado empieza con {, intentamos parsearlo
+            if json_str.startswith("{"):
+                action = json.loads(json_str)
+                # Remover el bloque JSON de la respuesta visible
+                response_text = re.sub(r"```[jJ]son\s*.*?\s*```", "", response_text, flags=re.DOTALL).strip()
+                response_text = re.sub(r"```\s*{.*?\s*```", "", response_text, flags=re.DOTALL).strip()
+        except Exception as e:
+            logger.error(f"[COPILOT] JSON parse error: {e}")
             pass
             
     return jsonify({"success": True, "message": response_text, "action": action})

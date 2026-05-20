@@ -34,6 +34,7 @@ import {
   Ticket,
   FileText,
   Eye,
+  Paperclip,
   Pause,
   Save,
   Activity,

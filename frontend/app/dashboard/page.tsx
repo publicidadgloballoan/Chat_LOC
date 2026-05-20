@@ -484,13 +484,12 @@ export default function DashboardPage() {
       if (res.data && res.data.length > 0) {
         const colab = res.data.find((c: any) => c && (c.businessName === 'Colaboratium' || c.name === 'Colaboratium'));
         const initial = colab || res.data[0];
-        setSelectedCompany(initial);
+        setSelectedCompany((prev: any) => prev || initial);
         const companyChannels = (initial?.channels || []).filter(Boolean);
         setChannels(companyChannels);
         
-        // Default to col_pro if it exists
-        const col_pro = companyChannels.find((ch: any) => ch.instanceName === 'col_pro');
-        setSelectedChannel(col_pro || companyChannels[0] || null);
+        // Default to all channels (null)
+        setSelectedChannel((prev: any) => prev !== undefined ? prev : null);
         
         fetchStats(token, initial?.id);
         fetchActivity(token, initial?.id);
@@ -1633,31 +1632,28 @@ export default function DashboardPage() {
                             </div>
                         </div>
                      </button>
-                  ))}
-               </div>
-            </div>
-            <div className="flex-1 flex flex-col relative" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}>
+                  <div className="flex-1 flex flex-col relative bg-[#0b141a]" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')", opacity: 0.9 }}>
               {selectedConversation ? (
                 <>
-                  <div className="p-6 border-b border-white/5 flex items-center justify-between bg-slate-950/80 backdrop-blur-md">
+                  <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[#202c33] z-10">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-sky-500 rounded-2xl flex items-center justify-center font-black text-white text-xl">
+                        <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center font-black text-white text-lg">
                           {selectedConvData?.nombre?.charAt(0) || (selectedConversation ? String(selectedConversation).charAt(0) : 'U')}
                         </div>
                         <div>
-                          <span className="block text-sm font-black text-white uppercase tracking-tight">{selectedConvData?.nombre || selectedConversation}</span>
-                          <span className="block text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> {selectedConvData?.silent ? 'INTERVENCIÓN MANUAL' : 'IA ACTIVA'}
+                          <span className="block text-[13px] font-medium text-white">{selectedConvData?.nombre || selectedConversation}</span>
+                          <span className="block text-[11px] text-slate-400 flex items-center gap-1">
+                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> {selectedConvData?.silent ? 'Intervención Manual' : 'IA Activa'}
                           </span>
                         </div>
                     </div>
-                        <div className="flex gap-4">
+                        <div className="flex gap-3">
                           <button 
                             onClick={handleSummarize}
                             disabled={summarizing}
-                            className={`px-6 py-3 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-sky-500 hover:text-white transition-all ${summarizing ? 'animate-pulse' : ''}`}
+                            className={`px-4 py-2 bg-white/5 text-slate-300 rounded-lg font-medium text-[11px] hover:bg-white/10 transition-all ${summarizing ? 'animate-pulse' : ''}`}
                           >
-                            {summarizing ? 'RESUMIENDO...' : 'RESUMIR'}
+                            {summarizing ? 'RESUMIENDO...' : 'RESUMIR IA'}
                           </button>
                           {selectedConvData?.silent ? (
                           <button 
@@ -1672,7 +1668,7 @@ export default function DashboardPage() {
                                 fetchData();
                               } catch (e) {}
                             }}
-                            className="px-6 py-3 bg-green-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-green-500/20"
+                            className="px-4 py-2 bg-[#00a884] text-[#111b21] rounded-lg font-bold text-[11px] shadow-lg"
                           >REANUDAR IA</button>
                         ) : (
                           <button 
@@ -1687,8 +1683,8 @@ export default function DashboardPage() {
                                 fetchData();
                               } catch (e) {}
                             }}
-                            className="px-6 py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
-                          >PAUSAR BOT</button>
+                            className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold text-[11px] hover:bg-red-500 hover:text-white transition-all"
+                          >PAUSAR IA</button>
                         )}
                         <button 
                           onClick={async () => {
@@ -1704,50 +1700,49 @@ export default function DashboardPage() {
                               fetchData();
                             } catch (e) { alert("Error al eliminar"); }
                           }}
-                          className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10"
+                          className="p-2 bg-white/5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-white/10 transition-all"
                         >
-                          <Trash2 size={20} />
+                          <Trash2 size={16} />
                         </button>
-                        <button className="p-3 bg-white/5 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-all"><Search size={20} /></button>
                     </div>
                   </div>
-                  <div className="flex-1 p-10 overflow-y-auto custom-scrollbar space-y-6 flex flex-col-reverse">
+                  <div className="flex-1 p-8 overflow-y-auto custom-scrollbar space-y-4 flex flex-col-reverse">
                     {filteredMessages.map((m, i) => (
                       <div key={i} className={`flex ${m.direction === 'out' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`p-5 rounded-[2rem] max-w-md ${m.direction === 'out' ? 'bg-sky-500 text-white rounded-tr-none shadow-xl shadow-sky-500/20' : 'bg-white/5 border border-white/10 text-slate-300 rounded-tl-none'}`}>
-                          <p className="text-sm font-medium">{m.message}</p>
-                          <span className={`text-[8px] font-black uppercase mt-2 block ${m.direction === 'out' ? 'text-sky-200' : 'text-slate-600'}`}>
-                            {m.time?.split(' ')[1] || 'N/A'} {m.direction === 'out' ? '• BOT' : ''}
+                        <div className={`p-2 px-3 pb-6 relative rounded-lg max-w-md ${m.direction === 'out' ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'}`}>
+                          <p className="text-[14.2px] leading-[19px] whitespace-pre-wrap">{m.message}</p>
+                          <span className="text-[11px] text-white/50 absolute bottom-1 right-2">
+                            {m.time?.split(' ')[1] || 'N/A'} {m.direction === 'out' ? '✓✓' : ''}
                           </span>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="p-8 border-t border-white/5 bg-slate-950/80 backdrop-blur-md">
-                    <div className="flex gap-4">
-                        <input 
-                          type="text" 
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                          placeholder="Escribe un mensaje..." 
-                          className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:border-sky-500" 
-                        />
-                        <button 
-                          onClick={handleSendMessage}
-                          className="px-10 bg-sky-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-sky-500/20 hover:scale-105 active:scale-95 transition-all"
-                        >ENVIAR</button>
-                    </div>
+                  <div className="p-3 bg-[#202c33] flex items-center gap-3">
+                      <button className="p-2 text-[#8696a0] hover:text-[#d1d7db] transition-all"><Paperclip size={20} /></button>
+                      <input 
+                        type="text" 
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Escribe un mensaje" 
+                        className="flex-1 bg-[#2a3942] rounded-lg px-4 py-2.5 text-[15px] text-[#d1d7db] outline-none focus:bg-[#2a3942] placeholder-[#8696a0]" 
+                      />
+                      <button 
+                        onClick={handleSendMessage}
+                        className="p-2 bg-[#00a884] text-[#111b21] rounded-full hover:bg-[#06cf9c] transition-all"
+                      ><Send size={18} className="ml-1" /></button>
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center opacity-20">
+                <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-[#e9edef]">
                    <MessageSquare size={80} />
-                   <p className="text-xl font-black uppercase mt-4">Selecciona un chat para comenzar</p>
+                   <p className="text-xl font-light mt-6">WhatsApp para Windows</p>
+                   <p className="text-sm mt-2 text-[#8696a0]">Selecciona un chat para comenzar a enviar mensajes</p>
                 </div>
               )}
-           </div>
-        </div>
+            </div>
+         </div>
       );
     }
 

@@ -363,6 +363,9 @@ export default function DashboardPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('action', 'upload_media');
+      if (selectedCompany?.id) {
+        formData.append('companyId', String(selectedCompany.id));
+      }
       
       const token = localStorage.getItem('PICE SaaS_token');
       const apiHost = window.location.hostname;

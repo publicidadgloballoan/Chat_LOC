@@ -127,7 +127,8 @@ def run_diagnostic_agent():
 
             # 3.1. WhatsApp (Evolution API)
             try:
-                r_evo = requests.get(f"{EVO_URL}/instance/fetchInstances", headers={"apikey": EVO_API_KEY}, timeout=4)
+                current_api_key = os.getenv("AUTHENTICATION_API_KEY", EVO_API_KEY)
+                r_evo = requests.get(f"{EVO_URL}/instance/fetchInstances", headers={"apikey": current_api_key}, timeout=4)
                 if r_evo.status_code == 200:
                     for item in r_evo.json():
                         instance_data = item.get('instance', {})
@@ -3288,21 +3289,23 @@ if __name__ == '__main__':
 
     init_db()
     
-    # Auto-sync de webhooks después de 10 segundos
+    # Auto-sync de webhooks en bucle periódico (cada 30s)
     def auto_sync():
-        time.sleep(10)
-        logger.info(" [AUTO-SYNC] Iniciando sincronización automática de webhooks (Baileys)...")
-        try:
-            res = requests.get(f"{EVO_URL}/instance/fetchInstances", headers={"apikey": EVO_API_KEY}, timeout=10)
-            if res.status_code == 200:
-                for item in res.json():
-                    inst = item.get('instance', {}).get('instanceName')
-                    if item.get('instance', {}).get('status') == 'connected':
-                        # Usar PUT para el servicio Node custom
-                        requests.put(f"{EVO_URL}/webhook/set/{inst}", 
-                                     json={"url": "http://localhost:5000/webhook"}, 
-                                     headers={"apikey": EVO_API_KEY}, timeout=5)
-        except: pass
+        logger.info(" [AUTO-SYNC] Iniciando bucle de sincronización periódica de webhooks (Baileys)...")
+        while True:
+            try:
+                current_api_key = os.getenv("AUTHENTICATION_API_KEY", EVO_API_KEY)
+                res = requests.get(f"{EVO_URL}/instance/fetchInstances", headers={"apikey": current_api_key}, timeout=5)
+                if res.status_code == 200:
+                    for item in res.json():
+                        inst = item.get('instance', {}).get('instanceName')
+                        if item.get('instance', {}).get('status') == 'connected':
+                            requests.put(f"{EVO_URL}/webhook/set/{inst}", 
+                                         json={"url": "http://localhost:5000/webhook"}, 
+                                         headers={"apikey": current_api_key}, timeout=5)
+            except Exception as e:
+                logger.debug(f" [AUTO-SYNC] Error en sincronización: {e}")
+            time.sleep(30)
 
     threading.Thread(target=auto_sync, daemon=True).start()
     threading.Thread(target=mkt_loop, daemon=True).start()

@@ -737,7 +737,7 @@ def handle_copilot():
     sys_prompt += "\nIMPORTANTE: A medida que el usuario te dé detalles, ve armando la configuración y SIEMPRE incluye un bloque JSON al final de tu respuesta para que el sistema lo previsualice en tiempo real."
     
     if context == 'Botones A1':
-        sys_prompt += " \nFormato de JSON esperado (dentro de ```json y ```):\n{\"action\": \"save_config\", \"type\": \"a1\", \"config\": {\"menuOptions\": [\"Opcion 1\", \"Opcion 2\"]}}"
+        sys_prompt += " \nFormato de JSON esperado (dentro de ```json y ```):\n{\"action\": \"save_config\", \"type\": \"a1\", \"config\": {\"opciones_menu\": [{\"numero\": \"1\", \"nombre\": \"Opcion 1\", \"respuesta\": \"\"}]}}"
     elif context == 'Flujos IA':
         sys_prompt += " \nPregúntale los pasos del embudo. A medida que te diga opciones, ve creando nodos (type 'webhook', 'media', 'buttons') y edges. Formato de JSON esperado:\n{\"action\": \"save_config\", \"type\": \"flow\", \"config\": {\"name\": \"flow_copilot\", \"nodes\": [{\"id\": \"1\", \"type\": \"buttons\", \"data\": {\"label\": \"Paso 1\"}, \"position\": {\"x\":0, \"y\":0}}], \"edges\": []}}"
     elif context == 'Identidad & Misión':

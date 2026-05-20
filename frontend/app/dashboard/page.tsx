@@ -2960,22 +2960,38 @@ export default function DashboardPage() {
         selectedChannel={selectedChannel} 
         onApplyAction={async (actionObj: any) => {
           console.log("[Copilot Action]", actionObj);
+          
+          let payloadToSave = { ...actionObj, instance: selectedChannel?.instanceName };
+
           if (actionObj.action === 'save_config') {
             if (actionObj.type === 'flow') {
               setSelectedFlow(actionObj.config);
             } else if (actionObj.type === 'a1') {
-              setConfigs((prev: any) => ({ ...prev, a1: actionObj.config }));
+              // Normalize LLM output format to UI format
+              if (actionObj.config.menuOptions && !actionObj.config.opciones_menu) {
+                actionObj.config.opciones_menu = actionObj.config.menuOptions;
+                delete actionObj.config.menuOptions;
+              }
+              
+              setConfigs((prev: any) => {
+                const newA1 = { ...(prev.a1 || {}), ...actionObj.config };
+                payloadToSave.config = newA1;
+                return { ...prev, a1: newA1 };
+              });
             }
           } else if (actionObj.action === 'save_knowledge') {
             if (actionObj.type === 'identity') {
               setStructuredKnowledge((prev: any) => ({ ...prev, identity: actionObj.data }));
             }
           }
-          // We also send the action to the backend to actually save it!
-          await handleAction(actionObj.action, actionObj);
-          if (activeTab !== 'Flujos IA') {
-            fetchData();
-          }
+          
+          // Wait a tiny bit for state to settle, then save
+          setTimeout(async () => {
+             await handleAction(payloadToSave.action, payloadToSave);
+             if (activeTab !== 'Flujos IA') {
+               fetchData();
+             }
+          }, 100);
         }} 
       />
     </div>

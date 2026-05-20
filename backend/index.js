@@ -442,7 +442,16 @@ app.get('/api/wa/qr', async (req, res) => {
         
         console.log(`[WA] SOLICITUD DE QR PARA: ${instanceName}`);
         
-        // 1. Limpiar instancia previa para forzar QR nuevo
+        // 1. Verificar si la instancia ya est conectada para evitar borrarla
+        try {
+            const stateRes = await axios.get(`${EVO_URL}/instance/connectionState/${instanceName}`, { headers: { apikey }, timeout: 3000 });
+            if (stateRes.data && stateRes.data.instance && stateRes.data.instance.state === 'open') {
+                console.log(`[WA] Instancia ${instanceName} ya estaba conectada. Ignorando solicitud de QR.`);
+                return res.json({ status: "connected", message: "La instancia ya se encuentra vinculada." });
+            }
+        } catch(e) { console.log(`[WA] Error verificando estado previo: ${e.message}`); }
+
+        // 2. Limpiar instancia previa para forzar QR nuevo
         try {
             await axios.delete(`${EVO_URL}/instance/delete/${instanceName}`, { headers: { apikey }, timeout: 5000 });
             await new Promise(r => setTimeout(r, 2000));

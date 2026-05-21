@@ -1,5 +1,0 @@
-{
-    "num_ctx": 4096,
-    "temperature": 0.3,
-    "num_predict": 800
-}

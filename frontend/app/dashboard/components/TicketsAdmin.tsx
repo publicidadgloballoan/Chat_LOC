@@ -28,7 +28,7 @@ export default function TicketsAdmin({ selectedChannel, selectedCompany }: Ticke
     try {
       setLoading(true);
       const apiHost = window.location.hostname;
-      const token = localStorage.getItem('antigravity_token');
+      const token = localStorage.getItem('PICE SaaS_token');
       const statusVal = filter === 'all' ? '' : (filter === 'open' ? 'open,pending_auth' : filter);
       const res = await axios.get(`http://${apiHost}:4000/api/data`, {
         params: { action: 'get_tickets', status: statusVal, companyId: selectedCompany?.id },
@@ -42,7 +42,7 @@ export default function TicketsAdmin({ selectedChannel, selectedCompany }: Ticke
   const fetchTeam = async () => {
     try {
       const apiHost = window.location.hostname;
-      const token = localStorage.getItem('antigravity_token');
+      const token = localStorage.getItem('PICE SaaS_token');
       const res = await axios.get(`http://${apiHost}:4000/api/data`, {
         params: { action: 'get_team', companyId: selectedCompany?.id },
         headers: { Authorization: `Bearer ${token}` }
@@ -59,7 +59,7 @@ export default function TicketsAdmin({ selectedChannel, selectedCompany }: Ticke
   const handleUpdateTicket = async (ticket: any) => {
     try {
       const apiHost = window.location.hostname;
-      const token = localStorage.getItem('antigravity_token');
+      const token = localStorage.getItem('PICE SaaS_token');
       await axios.post(`http://${apiHost}:4000/api/data`, {
         action: 'update_ticket',
         ...ticket,
@@ -74,7 +74,7 @@ export default function TicketsAdmin({ selectedChannel, selectedCompany }: Ticke
     if (!confirm("¿Está seguro de eliminar este ticket?")) return;
     try {
       const apiHost = window.location.hostname;
-      const token = localStorage.getItem('antigravity_token');
+      const token = localStorage.getItem('PICE SaaS_token');
       await axios.post(`http://${apiHost}:4000/api/data`, {
         action: 'delete_ticket',
         id
@@ -86,7 +86,7 @@ export default function TicketsAdmin({ selectedChannel, selectedCompany }: Ticke
   const handleForwardTicket = async (id: number, phone: string) => {
     try {
       const apiHost = window.location.hostname;
-      const token = localStorage.getItem('antigravity_token');
+      const token = localStorage.getItem('PICE SaaS_token');
       const res = await axios.post(`http://${apiHost}:4000/api/data`, {
         action: 'forward_ticket',
         id,
@@ -107,7 +107,7 @@ export default function TicketsAdmin({ selectedChannel, selectedCompany }: Ticke
     try {
       setSummarizing(ticketId);
       const apiHost = window.location.hostname;
-      const token = localStorage.getItem('antigravity_token');
+      const token = localStorage.getItem('PICE SaaS_token');
       const res = await axios.post(`http://${apiHost}:4000/api/data`, {
         action: 'summarize_conversation',
         phone,
@@ -355,7 +355,7 @@ function CreateTicketModal({ onClose, onSave, team, selectedCompany }: any) {
     if (!ticket.phone || !ticket.summary) return alert("Complete los campos requeridos");
     try {
       const apiHost = window.location.hostname;
-      const token = localStorage.getItem('antigravity_token');
+      const token = localStorage.getItem('PICE SaaS_token');
       await axios.post(`http://${apiHost}:4000/api/data`, {
         action: 'create_ticket',
         ticket,

@@ -218,7 +218,11 @@ export default function DashboardPage() {
         instance: instName
       }, { headers: { Authorization: `Bearer ${token}` } });
       alert('Instancia eliminada correctamente.');
-      fetchData();
+      if (token) {
+        fetchInitialData(token);
+      } else {
+        fetchData();
+      }
     } catch(e) {
       alert('Error eliminando instancia.');
     }

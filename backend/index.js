@@ -330,7 +330,7 @@ app.get('/api/wa/instances', authenticateToken, async (req, res) => {
             headers: { 'apikey': process.env.AUTHENTICATION_API_KEY } 
         });
         
-        const details = await Promise.all(response.data.map(async (inst) => {
+        let details = await Promise.all(response.data.map(async (inst) => {
             try {
                 const stateRes = await axios.get(`http://127.0.0.1:8080/instance/connectionState/${inst.instance.instanceName}`, {
                     headers: { 'apikey': process.env.AUTHENTICATION_API_KEY },
@@ -342,7 +342,16 @@ app.get('/api/wa/instances', authenticateToken, async (req, res) => {
                 return { ...inst.instance, state: 'offline' }; 
             }
         }));
-        
+
+        // Fetch Instagram instances
+        try {
+            const igResponse = await axios.get(`http://127.0.0.1:8081/debug/instances`, { timeout: 3000 });
+            if (igResponse.data && igResponse.data.keys) {
+                const igDetails = igResponse.data.keys.map(k => ({ instanceName: k, state: 'open', phone: 'Instagram' }));
+                details = details.concat(igDetails);
+            }
+        } catch (err) { console.log('[IG-STATE-ERR]', err.message); }
+
         res.json(details);
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -378,11 +387,15 @@ app.post('/channels/connect/:platform', async (req, res) => {
             } catch (err) { console.error('[WH-SET] Error en WA Local:', err.message); }
         } else if (platform === 'instagram') {
             try {
-                await axios.post(`http://localhost:8081/instance/create`, { 
+                await axios.post(`http://127.0.0.1:8081/instance/create`, { 
                     instanceName: instanceName,
                     credentials: credentials 
                 });
-            } catch (err) { console.error('[IG-SET] Error en IG Local:', err.message); }
+            } catch (err) { 
+                console.error('[IG-SET] Error en IG Local:', err.message); 
+                await prisma.channel.delete({ where: { id: channel.id } });
+                return res.status(400).json({ error: 'Fallo el login de Instagram. Verifica tus credenciales e intenta de nuevo.' });
+            }
         } else if (platform === 'telegram') {
             try {
                 await axios.post(`http://localhost:8082/instance/create`, { 
@@ -1063,6 +1076,86 @@ app.post('/api/flows/save', authenticateToken, (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- IMPORTAR PRECIOS DESDE CSV / XLS / PDF ---
+app.post('/api/knowledge/upload-pricing', authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+        const { instanceName, targetFile } = req.body; // targetFile: 'pricing' | 'logistics'
+        if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo.' });
+        if (!instanceName) return res.status(400).json({ error: 'Falta instanceName.' });
+
+        const channel = await prisma.channel.findFirst({ where: { instanceName } });
+        if (!channel) return res.status(404).json({ error: 'Canal no encontrado.' });
+
+        const companyId = channel.companyId;
+        const configDir = path.join(__dirname, '..', 'ai_core', 'config', `company_${companyId}`, 'configs');
+        if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+
+        const ext = path.extname(req.file.originalname).toLowerCase();
+        let result = {};
+
+        if (ext === '.csv') {
+            const csvContent = fs.readFileSync(req.file.path, 'utf8');
+            const lines = csvContent.split('\n').filter(l => l.trim());
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            
+            for (let i = 1; i < lines.length; i++) {
+                const vals = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+                const row = {};
+                headers.forEach((h, idx) => row[h] = vals[idx] || '');
+                
+                // Detect if it's a logistics row (has localidad/km/costo) or pricing (name/precio)
+                if (row.localidad || row.zona) {
+                    const key = row.localidad || row.zona;
+                    const price = parseInt((row.costo || row.precio || '0').replace(/\D/g, '')) || 0;
+                    result[key] = price;
+                } else if (row.nombre || row.raza || row.producto) {
+                    const key = row.nombre || row.raza || row.producto;
+                    result[key] = {
+                        precio: row.precio || row.price || 0,
+                        stock: parseInt(row.stock) || 100,
+                        macho: row.macho,
+                        hembra: row.hembra
+                    };
+                }
+            }
+        } else {
+            // For PDF/XLS: delegate to Python nucleo
+            const formData = new FormData();
+            formData.append('file', fs.createReadStream(req.file.path), req.file.originalname);
+            formData.append('action', 'parse_pricing_file');
+            formData.append('instance', instanceName);
+            formData.append('target', targetFile || 'logistics');
+            try {
+                const pyResp = await axios.post('http://127.0.0.1:5000/api/data', formData, {
+                    headers: { ...formData.getHeaders() }, timeout: 30000
+                });
+                result = pyResp.data?.result || {};
+            } catch (pyErr) {
+                console.error('[UPLOAD-PRICING] Python parse failed:', pyErr.message);
+                return res.status(500).json({ error: 'Error procesando el archivo en el núcleo IA.' });
+            }
+        }
+
+        const outFile = targetFile === 'pricing' ? 'pricing.json' : 'logistics.json';
+        const outPath = path.join(configDir, outFile);
+        
+        // Merge with existing
+        let existing = {};
+        if (fs.existsSync(outPath)) {
+            try { existing = JSON.parse(fs.readFileSync(outPath, 'utf8')); } catch {}
+        }
+        const merged = { ...existing, ...result };
+        fs.writeFileSync(outPath, JSON.stringify(merged, null, 2));
+        
+        try { fs.unlinkSync(req.file.path); } catch {}
+        
+        res.json({ success: true, entries: Object.keys(result).length, file: outFile });
+    } catch (e) { 
+        console.error('[UPLOAD-PRICING ERROR]:', e.message);
+        res.status(500).json({ error: e.message }); 
+    }
+});
+
 app.delete('/api/flows/:name', authenticateToken, (req, res) => {
     try {
         const { name } = req.params;
@@ -1219,7 +1312,7 @@ async function syncWhatsappInstances() {
 
         // 1. Obtener canales de la BD
         const dbChannels = await prisma.channel.findMany({
-            where: { platform: 'WHATSAPP' }
+            where: { platform: { in: ['WHATSAPP', 'whatsapp'] } }
         });
         const activeNames = new Set(dbChannels.map(c => c.instanceName));
         console.log(`[SYNC] Canales activos en BD:`, Array.from(activeNames));
@@ -1234,6 +1327,7 @@ async function syncWhatsappInstances() {
         console.log(`[SYNC] Instancias corriendo en servicio WA:`, runningInstances);
 
         // 3. Eliminar las que no estén en la BD
+        const runningSet = new Set(runningInstances);
         for (const inst of runningInstances) {
             if (!activeNames.has(inst) && inst !== 'test_qr' && !inst.endsWith('_phone')) {
                 console.log(`[SYNC] Detectada instancia no registrada en la base de datos: ${inst}. Eliminando de la memoria y disco...`);
@@ -1245,6 +1339,21 @@ async function syncWhatsappInstances() {
                     console.log(`[SYNC] Instancia ${inst} eliminada con éxito.`);
                 } catch (err) {
                     console.error(`[SYNC] Error eliminando ${inst}:`, err.message);
+                }
+            }
+        }
+
+        // 4. Iniciar las registradas que no están corriendo en Baileys
+        for (const channel of dbChannels) {
+            if ((channel.platform === 'WHATSAPP' || channel.platform === 'whatsapp') && !runningSet.has(channel.instanceName)) {
+                console.log(`[SYNC] Instancia registrada en DB pero no activa en servicio WA: ${channel.instanceName}. Autoconectando...`);
+                try {
+                    await axios.get(`${EVO_URL}/instance/connect/${channel.instanceName}`, {
+                        headers: { apikey },
+                        timeout: 5000
+                    });
+                } catch (err) {
+                    console.error(`[SYNC] Fallo reconexion auto de ${channel.instanceName}:`, err.message);
                 }
             }
         }

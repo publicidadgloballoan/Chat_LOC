@@ -477,9 +477,6 @@ app.get('/api/wa/qr', async (req, res) => {
             });
             
             if (response.data) {
-                if (response.data.count === 0 && !response.data.base64) {
-                    return res.json({ status: "connected", message: "La instancia ya se encuentra vinculada." });
-                }
                 if (response.data.base64 || response.data.code) {
                     qrData = response.data;
                     if (qrData.base64) break; // Prioridad al base64
@@ -971,8 +968,19 @@ app.all('/api/data', authenticateToken, upload.single('file'), async (req, res) 
         const url = `http://127.0.0.1:5000/api/data`;
         const method = req.method;
         const params = req.query;
-        
         let response;
+        
+        // Interceptar delete_instance para borrar de Prisma tambien
+        if (method === 'POST' && req.body && req.body.action === 'delete_instance') {
+            try {
+                await prisma.channel.deleteMany({
+                    where: { instanceName: req.body.instance }
+                });
+            } catch (err) {
+                console.error('[PRISMA-DELETE] Error:', err.message);
+            }
+        }
+
         if (req.file) {
             // Si hay archivo, reconstruir el form-data para el Nucleo IA
             const FormData = require('form-data');

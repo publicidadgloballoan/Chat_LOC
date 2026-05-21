@@ -2636,7 +2636,11 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
             targets = {e['target'] for e in edges}
             first_node_id = next((n['id'] for n in flow_data.get('nodes', []) if n['id'] not in targets), None)
             if not first_node_id and flow_data.get('nodes'): first_node_id = flow_data['nodes'][0]['id']
-            if not state or state not in nodes: state = first_node_id
+            if not state or state not in nodes:
+                new_state = first_node_id
+                state = None
+            else:
+                new_state = state
 
             logistics_p = os.path.join(CONFIG_DIR, f"company_{company_id}", "configs", "logistics.json")
             session_ctx = cur_summary if cur_summary else ""
@@ -2700,8 +2704,8 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                     if os.path.exists(dp): return dp
                 return None
 
-            current_node = nodes.get(state)
-            new_state = state
+            current_node = nodes.get(state) if state else None
+            # new_state is already set above
 
             if current_node:
                 ntype = current_node['type']

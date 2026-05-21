@@ -56,10 +56,8 @@ def sync():
     launcher_content = f"""@echo off
 title SaaS IA Platform
 echo ================================================
-echo   Limpiando procesos anteriores...
+echo   Limpiando procesos anteriores (saltado para no matar el Servidor de Licencias)...
 echo ================================================
-taskkill /F /IM node.exe /T 2>nul
-taskkill /F /IM python.exe /T 2>nul
 timeout /t 2 /nobreak >nul
 
 echo ================================================

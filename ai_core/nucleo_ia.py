@@ -316,11 +316,59 @@ def cache_get_knowledge(inst_name):
     kp = os.path.join(CONFIG_DIR, inst_name, "knowledge.txt")
     if os.path.exists(kp):
         knowledge += open(kp, "r", encoding="utf-8").read() + "\n\n"
-    
+        
+    # NUEVO: Obtener company_id para cargar conocimiento a nivel de empresa
+    company_id = None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5)
+        c = conn.cursor()
+        c.execute("SELECT company_id FROM connections WHERE instance=?", (inst_name,))
+        row = c.fetchone()
+        if row: company_id = row[0]
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error fetching company_id for {inst_name}: {e}")
+
+    # Si hay una empresa asociada, cargar su conocimiento global
+    if company_id:
+        company_kn_paths = [
+            os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge.txt"),
+            os.path.join(CONFIG_DIR, f"company_{company_id}", "consolidated_knowledge.md"),
+            os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "knowledge.txt"),
+            os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "consolidated_knowledge.md")
+        ]
+        for ckp in company_kn_paths:
+            if os.path.exists(ckp) and os.path.getsize(ckp) > 0:
+                try:
+                    with open(ckp, "r", encoding="utf-8") as f:
+                        knowledge += f"\n--- CONOCIMIENTO DE LA EMPRESA (GLOBAL) ({os.path.basename(ckp)}) ---\n"
+                        knowledge += f.read() + "\n\n"
+                except Exception as e:
+                    logger.error(f"Error leyendo {ckp}: {e}")
+                    
+        # Tambien se pueden leer archivos sueltos en el directorio knowledge de la empresa
+        company_kn_dir = os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge")
+        if os.path.exists(company_kn_dir):
+            for filename in os.listdir(company_kn_dir):
+                if filename not in ["knowledge.txt", "consolidated_knowledge.md"]:
+                    filepath = os.path.join(company_kn_dir, filename)
+                    if os.path.isfile(filepath):
+                        try:
+                            with open(filepath, "r", encoding="utf-8") as f:
+                                knowledge += f"\n--- DOCUMENTO GLOBAL: {filename} ---\n"
+                                knowledge += f.read() + "\n\n"
+                        except Exception as e:
+                            logger.error(f"Error leyendo {filepath}: {e}")
+
+    # Continuar con el conocimiento especifico de la instancia
     consolidated_path = os.path.join(CONFIG_DIR, inst_name, "consolidated_knowledge.md")
     # 1. Cargar JSONs estructurados (PRIORIDAD ALTA)
-    # Buscar en raíz y en subdirectorio 'configs'
+    # Buscar en raz y en subdirectorio 'configs'
     json_dirs = [os.path.join(CONFIG_DIR, inst_name), os.path.join(CONFIG_DIR, inst_name, "configs")]
+    if company_id:
+        json_dirs.append(os.path.join(CONFIG_DIR, f"company_{company_id}", "configs"))
+        json_dirs.append(os.path.join(CONFIG_DIR, f"company_{company_id}"))
+
     for jdir in json_dirs:
         for json_file in ["pricing.json", "identity.json", "logistics.json"]:
             jp = os.path.join(jdir, json_file)
@@ -345,6 +393,20 @@ def cache_get_knowledge(inst_name):
             with open(kp, "r", encoding="utf-8") as f:
                 knowledge += f"\n--- CONOCIMIENTO HISTÓRICO / CHATS ({os.path.basename(kp)}) ---\n"
                 knowledge += f.read()
+
+    # Tambien leer otros archivos en la carpeta de knowledge de la instancia especifica
+    inst_kn_dir = os.path.join(CONFIG_DIR, inst_name, "knowledge")
+    if os.path.exists(inst_kn_dir):
+        for filename in os.listdir(inst_kn_dir):
+            if filename not in ["knowledge.txt", "consolidated_knowledge.md"]:
+                filepath = os.path.join(inst_kn_dir, filename)
+                if os.path.isfile(filepath):
+                    try:
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            knowledge += f"\n--- DOCUMENTO DEL CANAL: {filename} ---\n"
+                            knowledge += f.read() + "\n\n"
+                    except Exception as e:
+                        pass
     
     knowledge_cache[inst_name] = {"data": knowledge, "ts": now, "size": len(knowledge)}
     logger.info(f" [CACHE-MISS] Conocimiento de {inst_name} cargado a RAM ({len(knowledge)} chars)")
@@ -2269,6 +2331,8 @@ def handle_api_data():
             paths = [os.path.join(CONFIG_DIR, conf_path, fname), 
                      os.path.join(CONFIG_DIR, conf_path, "configs", fname),
                      os.path.join(CONFIG_DIR, conf_path, "knowledge", fname)]
+            if comp_id:
+                paths.extend([os.path.join(CONFIG_DIR, f"company_{comp_id}", "configs", fname), os.path.join(CONFIG_DIR, f"company_{comp_id}", "knowledge", fname), os.path.join(CONFIG_DIR, f"company_{comp_id}", fname)])
             for p in paths:
                 if os.path.exists(p):
                     try:
@@ -2488,6 +2552,24 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
             pricing_p = os.path.join(conf_p, "pricing.json")
             logistics_p = os.path.join(conf_p, "logistics.json")
             catalog_p = os.path.join(conf_p, "media_catalog.json")
+
+            # Fallback a global
+            company_id = None
+            try:
+                conn_tmp = sqlite3.connect(DB_PATH, timeout=5)
+                c_tmp = conn_tmp.cursor()
+                c_tmp.execute("SELECT company_id FROM connections WHERE instance=?", (inst_name,))
+                row_tmp = c_tmp.fetchone()
+                if row_tmp: company_id = row_tmp[0]
+                conn_tmp.close()
+            except: pass
+
+            if company_id:
+                conf_c = os.path.join(CONFIG_DIR, f"company_{company_id}", "configs")
+                if not os.path.exists(pricing_p) and os.path.exists(os.path.join(conf_c, "pricing.json")): pricing_p = os.path.join(conf_c, "pricing.json")
+                if not os.path.exists(logistics_p) and os.path.exists(os.path.join(conf_c, "logistics.json")): logistics_p = os.path.join(conf_c, "logistics.json")
+                if not os.path.exists(catalog_p) and os.path.exists(os.path.join(conf_c, "media_catalog.json")): catalog_p = os.path.join(conf_c, "media_catalog.json")
+
             ia_prompt = conf_a1.get("ia_prompt", "Eres un experto en Nico Ventas.")
             logger.info(f" [DEBUG-TRACE] Paths and prompt OK")
             
@@ -2512,297 +2594,262 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                 lg = json.load(open(logistics_p, "r", encoding="utf-8"))
                 q_u = q.upper()
                 for z, c in lg.items():
-                    if z in q_u or q_u in z: return c
-                return lg.get("INTERIOR", 35000)
+                    if z in q_u or q_u in z:
+                        if isinstance(c, dict):
+                            val = c.get('costo', '0')
+                            if 'sin cargo' in str(val).lower(): return 0
+                            digits = re.sub(r'\D', '', str(val))
+                            return int(digits) if digits else 0
+                        return c
+                interior = lg.get("Interior del País", {})
+                if isinstance(interior, dict):
+                    val = interior.get('costo', '435000')
+                    digits = re.sub(r'\D', '', str(val))
+                    return int(digits) if digits else 435000
+                return 435000
 
-            # --- INTERCEPTOR GLOBAL DE RAZAS (Permite cambiar de raza en cualquier momento) ---
-            if state not in ["MENU", "NICO_AWAITING_NAME", "NICO_CONFIRMING_NAME"]:
-                bn, p = _get_price(body)
-                # Si detectamos una raza nueva o el usuario está preguntando por una específica
-                if bn and (not cur_summary or bn.lower() not in cur_summary.lower()):
-                    logger.info(f" [DEBUG-FLOW] Cambio de raza detectado: {bn}")
-                    res = f"¡Perfecto! El *{bn}* está ${p:,}. ¿Querés que te envíe fotos y videos reales?"
-                    update_session(phone, inst_name, state="NICO_ASK_PHOTOS", summary=f"RAZA: {bn} | PRECIO: {p}")
-                    _send(jid, inst_name, res); processing_count -= 1; return
-
-            # INTERCEPTOR DE FOTOS/VIDEOS DEL CATÁLOGO (Global)
-            trigger_words = ["foto", "video", "imagen", "veamos", "pasame", "verlo", "mirar", "muestrame", "mostrame"]
-            if any(w in body.lower() for w in trigger_words) and state not in ["MENU", "NICO_AWAITING_NAME"]:
-                bq = body.lower()
-                # Si el body no tiene la raza, la sacamos del summary
-                if not any(breed.lower() in bq for breed in ["salchicha", "boxer", "caniche", "yorkshire", "beagle", "shitzu", "schnauzer", "bulldog"]):
-                    if cur_summary: bq = cur_summary.split("|")[0].replace("RAZA:","").strip().lower()
-                
-                logger.info(f" [DEBUG-MEDIA] Intento de media para: {bq}")
-                if os.path.exists(catalog_p):
-                    cat = json.load(open(catalog_p, "r", encoding="utf-8"))
-                    match = None
-                    for k, v in cat.items():
-                        if k.lower() in bq or bq in k.lower(): match = v; break
-                    
-                    if match:
-                        photos = match.get("photos", [])
-                        videos = match.get("videos", [])
-                        general_img_path = os.path.join(CONFIG_DIR, inst_name, "media", "IMG-20260423-WA0021.jpg")
-                        
-                        if photos:
-                            _send(jid, inst_name, "¡Claro! Aquí tienes las fotos reales: 📸✨")
-                            for img in photos[:4]: _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", img))
-                            # Siempre enviar la imagen general al final
-                            if os.path.exists(general_img_path): _send_media(jid, inst_name, general_img_path)
-                        elif videos:
-                            _send(jid, inst_name, "No tengo fotos nuevas a mano, ¡pero te paso videos reales para que los veas mejor! 🎥🐾")
-                            for vid in videos[:2]: _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", vid))
-                            if os.path.exists(general_img_path): _send_media(jid, inst_name, general_img_path)
-                        else:
-                            _send(jid, inst_name, "Justo de esa raza no tengo fotos en este momento, pero si querés podés venir a verlos personalmente. 🐾")
-                        
-                        if state == "NICO_AWAITING_BREED" or state == "NICO_ASK_PHOTOS":
-                            # Si estábamos buscando raza, avanzamos a preguntar si quiere reservar
-                            como_trabajamos = "Te cuento cómo trabajamos mientras los mirás."
-                            try: como_trabajamos = open(os.path.join(MEDIA_LIB_DIR, "nico_ventas", "Como trabajamos.txt"), "r", encoding="utf-8").read()
-                            except: pass
-                            _send(jid, inst_name, como_trabajamos)
-                            update_session(phone, inst_name, state="NICO_CONFIRM_PROCESS")
-                        
-                        processing_count -= 1; return
-                    else:
-                        _send(jid, inst_name, "¿De qué raza te gustaría ver fotos? Actualmente tenemos Salchichas, Caniches, Boxer, etc.")
-                        processing_count -= 1; return
-
-            # MAQUINA DE ESTADOS
-            logger.info(f" [DEBUG-FLOW] State: {state}, Body: {body}")
-            if state == "MENU" or state == "AWAITING_MENU":
-                res = "¡Hola! Soy Nico de Mascotas 🐾. Para atenderte mejor, ¿me podrías decir tu nombre y apellido?"
-                logger.info(f" [DEBUG-FLOW] Entrando a MENU -> NICO_AWAITING_NAME")
-                update_session(phone, inst_name, state="NICO_AWAITING_NAME")
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_AWAITING_NAME":
-                name_clean = body.replace("[NOTA DE VOZ]:", "").replace("me llamo", "").replace("soy", "").strip().title()
-                res = f"Gracias {name_clean}, ¿es correcto? (SI/NO)"
-                update_session(phone, inst_name, state="NICO_CONFIRMING_NAME", name=name_clean)
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_CONFIRMING_NAME":
-                if "SI" in body.upper():
-                    res = f"¡Mucho gusto {cur_name}! ¿Qué raza buscás? Actualmente tenemos:\n"
-                    if os.path.exists(pricing_p):
-                        for b, v in json.load(open(pricing_p, "r", encoding="utf-8")).items():
-                            if isinstance(v, dict): res += f"- {b}\n"
-                    update_session(phone, inst_name, state="NICO_AWAITING_BREED", name_confirmed=1)
-                else:
-                    res = "Perdón, ¿me decís tu nombre nuevamente?"
-                    update_session(phone, inst_name, state="NICO_AWAITING_NAME")
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_AWAITING_BREED":
-                bn, p = _get_price(body)
-                if bn:
-                    res = f"¡Excelente! El *{bn}* está ${p:,}. ¿Querés que te envíe fotos y videos reales?"
-                    update_session(phone, inst_name, state="NICO_ASK_PHOTOS", summary=f"RAZA: {bn} | PRECIO: {p}")
-                else: res = query_ollama(body, ia_prompt, inst_name)
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_ASK_PHOTOS":
-                if any(x in body.upper() for x in ["SI", "DALE", "FOTO", "OK", "ESTA BIEN", "PASAME"]):
-                    # Esto ahora se maneja mayormente por el interceptor global para evitar duplicidad,
-                    # pero si llega aquí sin disparar el interceptor, lo forzamos.
-                    bq = cur_summary.split("|")[0].replace("RAZA:","").strip().lower()
-                    _send(jid, inst_name, f"¡Perfecto! Buscando fotos de {bq}... ⏳")
-                    # Disparamos el interceptor manualmente reenviando la lógica
-                    body = f"fotos de {bq}" 
-                    # No retornamos, dejamos que el flujo suba o se maneje en el siguiente mensaje
-                    # Pero para evitar bucle, simplemente forzamos el envío aquí una vez más:
-                    if os.path.exists(catalog_p):
-                        cat = json.load(open(catalog_p, "r", encoding="utf-8"))
-                        match = next((v for k, v in cat.items() if k.lower() in bq or bq in k.lower()), None)
-                        general_img_path = os.path.join(CONFIG_DIR, inst_name, "media", "IMG-20260423-WA0021.jpg")
-                        if match:
-                            photos = match.get("photos", [])
-                            videos = match.get("videos", [])
-                            if photos:
-                                for img in photos[:3]: _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", img))
-                            elif videos:
-                                for vid in videos[:2]: _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", vid))
-                            
-                            if os.path.exists(general_img_path): _send_media(jid, inst_name, general_img_path)
-                    
-                    time.sleep(1)
-                    como_trabajamos = "Te cuento cómo trabajamos mientras los mirás."
-                    try: como_trabajamos = open(os.path.join(MEDIA_LIB_DIR, "nico_ventas", "Como trabajamos.txt"), "r", encoding="utf-8").read()
-                    except: pass
-                    _send(jid, inst_name, como_trabajamos)
-                    update_session(phone, inst_name, state="NICO_CONFIRM_PROCESS")
-                    
-                    # 6. enviar texto "Como trabajamos.txt"
-                    como_trabajamos = "Mientras los mirás, te cuento cómo trabajamos."
-                    try: como_trabajamos = open(os.path.join(MEDIA_LIB_DIR, "nico_ventas", "Como trabajamos.txt"), "r", encoding="utf-8").read()
-                    except: pass
-                    _send(jid, inst_name, como_trabajamos)
-                    
-                    res = "¿Estás de acuerdo con nuestra forma de trabajo?"
-                    update_session(phone, inst_name, state="NICO_CONFIRM_PROCESS")
-                else:
-                    # Fallback a IA si no es una respuesta directa a las fotos
-                    res = query_ollama(body, ia_prompt, inst_name)
-                    # Añadimos un recordatorio suave si la IA no lo hizo
-                    if "¿" not in res:
-                        res += "\n\n¿Querés que te envíe fotos y videos reales para avanzar?"
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_CONFIRM_PROCESS":
-                if any(x in body.upper() for x in ["SI", "OK", "DALE"]):
-                    # 7. enviar texto "reserva.txt" y preguntar zona
-                    reserva = "¡Perfecto! La reserva es de $50.000."
-                    try: reserva = open(os.path.join(MEDIA_LIB_DIR, "nico_ventas", "reserva.txt"), "r", encoding="utf-8").read()
-                    except: pass
-                    _send(jid, inst_name, reserva)
-                    res = "¿En qué zona sería la entrega para pasarte el precio del envío?"
-                    update_session(phone, inst_name, state="NICO_AWAITING_ZONE")
-                else: res = "¿Aceptás nuestra forma de trabajo?"
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_AWAITING_ZONE":
-                shp = _get_shipping(body)
-                p = int(cur_summary.split("|")[1].replace("PRECIO:","").strip())
-                res = f"📍 El envío a {body.upper()} es de ${shp:,}.\n\n*TOTAL A PAGAR: ${p+shp:,}*.\n\n¿Confirmamos?"
-                update_session(phone, inst_name, state="NICO_CONFIRM_TOTAL", summary=f"{cur_summary} | ZONA: {body} | TOTAL: {p+shp}")
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_CONFIRM_TOTAL":
-                if any(x in body.upper() for x in ["SI", "OK", "CONFIRMO", "DALE"]):
-                    res = "¡Perfecto! Quedo a la espera del comprobante de transferencia."
-                    update_session(phone, inst_name, state="NICO_AWAITING_PROOF")
-                else: res = "¿Confirmamos el pedido?"
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_AWAITING_PROOF":
-                if is_multimedia or any(x in body.upper() for x in ["COMPROBANTE", "LISTO", "ENVIADO", "PAGO", "TRANSFE", "ACÁ"]):
-                    # 10. esperar comprobante... enviar datos.txt
-                    datos = "¡Comprobante recibido! ✅ Ticket de venta abierto.\n\nPor favor, completame estos datos finales:"
-                    try: datos = open(os.path.join(MEDIA_LIB_DIR, "nico_ventas", "datos.txt"), "r", encoding="utf-8").read()
-                    except: pass
-                    res = "¡Comprobante recibido con éxito! ✅\n\n" + datos
-                    
-                    # 11. Pedir autorizacion humana (Ticket A3)
-                    try:
-                        conn_tk = sqlite3.connect(DB_PATH, timeout=30)
-                        c_tk = conn_tk.cursor()
-                        sum_ia = get_chat_summary(phone, inst_name)
-                        c_tk.execute("INSERT INTO tickets (phone, channel, status, summary, a3, summary_ia) VALUES (?, ?, ?, ?, 1, ?)", 
-                                     (phone, inst_name, 'pending_auth', cur_summary, sum_ia))
-                        conn_tk.commit()
-                        conn_tk.close()
-                    except Exception as e: logger.error(f" [DB-ERR] Insert ticket: {e}")
-
-                    # Calcular resta de la señal
-                    try:
-                        total_match = re.search(r"TOTAL:\s*(\d+)", cur_summary)
-                        if total_match:
-                            total_val = int(total_match.group(1))
-                            senal = 50000
-                            resta = total_val - senal
-                            detail_msg = f"{cur_summary}\n💰 *PAGO:* Total ${total_val:,} - Seña ${senal:,} = *RESTA ${resta:,}*"
-                        else:
-                            detail_msg = cur_summary
-                    except: detail_msg = cur_summary
-
-                    for adm in ADMIN_PHONES: _send(f"{adm}@s.whatsapp.net", inst_name, f"⚠️ *VENTA NICO*: {cur_name} envió comprobante.\nDetalle: {detail_msg}")
-                    update_session(phone, inst_name, state="NICO_AWAITING_FINAL_DATA", manual=0)
-                elif any(x in body.upper() for x in ["FOTO", "VIDEO", "MIRAR", "PASAME", "PRECIO", "VALOR", "CUANTO", "MAS", "EXTRA", "CIUCHA", "CUCHA"]):
-                    _send(jid, inst_name, "¡Claro! Aquí tienes más información y fotos: 📸✨")
-                    bq = cur_summary.split("|")[0].replace("RAZA:","").strip().lower()
-                    if os.path.exists(catalog_p):
-                        cat = json.load(open(catalog_p, "r", encoding="utf-8"))
-                        match = next((v for k, v in cat.items() if k in bq or bq in k), None)
-                        if match:
-                            for img in match.get("photos", [])[:4]: 
-                                _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", img))
-                                time.sleep(1)
-                            for vid in match.get("videos", [])[:1]: 
-                                _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", vid))
-                                time.sleep(1)
-                    res = "Cuando estés listo, enviame el comprobante por acá. ¡Gracias!"
-                else:
-                    res = "Quedo a la espera del comprobante de transferencia para agendar tu cachorro. ¡Gracias!"
-                _send(jid, inst_name, res); processing_count -= 1; return
-            elif state == "NICO_AWAITING_FINAL_DATA":
-                # Si pregunta cosas en lugar de dar los datos de envío, respondemos y nos quedamos aquí
-                if any(x in body.upper() for x in ["PRECIO", "CUANTO", "FOTO", "VALOR", "CIUCHA", "CUCHA", "MAS", "EXTRA"]):
-                    _send(jid, inst_name, "¡Te paso la info! Pero antes, no olvides pasarme tus datos de envío para terminar la reserva. 😉")
-                    bq = body.lower()
-                    if os.path.exists(catalog_p):
-                        cat = json.load(open(catalog_p, "r", encoding="utf-8"))
-                        match = None
-                        for k, v in cat.items():
-                            if k.lower() in bq or bq in k.lower(): match = v; break
-                        if match:
-                            for img in match.get("photos", [])[:2]: _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", img))
-                    processing_count -= 1; return
-
-                # 11. Mensaje de Ticket Final al Cliente
-                summary_fmt = cur_summary.replace("|", "\n-")
-                res = f"✅ *Se generó un ticket con los siguientes datos:*\n\n"
-                res += f"📋 *RESUMEN:* \n-{summary_fmt}\n"
-                res += f"👤 *DATOS CLIENTE:* {body}\n"
-                res += f"\n¡Muchas gracias! Ya procesé tus datos finales. 🐾"
-                _send(jid, inst_name, res)
-                
-                # 12. Enviar audio cierre de venta
-                audio_path = os.path.join(MEDIA_LIB_DIR, "nico_ventas", "cierre de venta.mp4")
-                if os.path.exists(audio_path):
-                    _send_media(jid, inst_name, audio_path)
-                
-                # 13. Enviar entrega.txt
-                entrega = ""
-                try: entrega = open(os.path.join(MEDIA_LIB_DIR, "nico_ventas", "Entrega.txt"), "r", encoding="utf-8").read()
+            # Cargar flujo activo
+            active_flow_p = os.path.join(CONFIG_DIR, inst_name, "configs", "active_flow.json")
+            if not os.path.exists(active_flow_p) and company_id:
+                active_flow_p = os.path.join(CONFIG_DIR, f"company_{company_id}", "configs", "active_flow.json")
+            
+            flow_name = "default"
+            if os.path.exists(active_flow_p):
+                try: flow_name = json.load(open(active_flow_p, "r", encoding="utf-8")).get("name", "default")
                 except: pass
-                if entrega: _send(jid, inst_name, entrega)
-                
-                # 14. Enviar a Valeria Bazo
-                valeria = "5491159439080"
-                _send(f"{valeria}@s.whatsapp.net", inst_name, f"🚚 *NUEVA LOGÍSTICA*: {cur_name}\nPedido: {cur_summary}\nDatos Cliente: {body}")
-                
-                # FINALIZAR FLUJO Y QUEDAR EN ESPERA DE AUTORIZACION HUMANA (Ticket A3)
-                # No ponemos manual=1 para que pueda seguir preguntando por productos extra
-                update_session(phone, inst_name, state="NICO_A3_PENDING_AUTH", pending_handoff=1, manual=0)
+            
+            flow_p = os.path.join(os.path.dirname(__file__), "flows", str(company_id), f"{flow_name}.flu")
+            
+            flow_data = None
+            try: flow_data = json.load(open(flow_p, "r", encoding="utf-8"))
+            except Exception as fe: logger.error(f"[FLOW] Error loading flow: {fe}")
+
+            if not flow_data or "nodes" not in flow_data:
+                # No flow: generic Ollama fallback
+                res = query_ollama(body, ia_prompt, inst_name)
+                _send(jid, inst_name, res)
                 processing_count -= 1; return
 
-            elif state == "NICO_A3_PENDING_AUTH":
-                # En este estado, el ticket ya está creado pero el bot sigue atento por si piden productos extra
-                if any(x in body.upper() for x in ["FOTO", "VIDEO", "MIRAR", "PASAME", "PRECIO", "VALOR", "CUANTO", "MAS", "EXTRA"]):
-                    _send(jid, inst_name, "¡Claro! Decime qué más te gustaría ver o agregar a tu pedido y te paso info. 🐾")
-                    # Podríamos re-usar la lógica de búsqueda en catálogo aquí
-                    bq = body.lower()
-                    if os.path.exists(catalog_p):
-                        cat = json.load(open(catalog_p, "r", encoding="utf-8"))
-                        match = None
-                        for k, v in cat.items():
-                            if k.lower() in bq or bq in k.lower(): match = v; break
-                        if match:
-                            for img in match.get("photos", [])[:2]: _send_media(jid, inst_name, os.path.join(CONFIG_DIR, inst_name, "media", img))
-                    processing_count -= 1; return
+            nodes = {n['id']: n for n in flow_data.get('nodes', [])}
+            edges = flow_data.get('edges', [])
+            next_node_map = {e['source']: e['target'] for e in edges}
+            targets = {e['target'] for e in edges}
+            first_node_id = next((n['id'] for n in flow_data.get('nodes', []) if n['id'] not in targets), None)
+            if not first_node_id and flow_data.get('nodes'): first_node_id = flow_data['nodes'][0]['id']
+            if not state or state not in nodes: state = first_node_id
+
+            logistics_p = os.path.join(CONFIG_DIR, f"company_{company_id}", "configs", "logistics.json")
+            session_ctx = cur_summary if cur_summary else ""
+
+            def _fuzzy_find_media(articulo):
+                found = []
+                name_clean = articulo.lower().replace(" ", "-").replace("_", "-")
+                search_dirs = [
+                    os.path.join(CONFIG_DIR, inst_name, "media"),
+                    os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "extracted"),
+                    os.path.join(CONFIG_DIR, f"company_{company_id}", "media"),
+                ]
+                for d in search_dirs:
+                    if not os.path.exists(d): continue
+                    for f in os.listdir(d):
+                        fname = f.lower().replace(" ", "-").replace("_", "-")
+                        words = [w for w in name_clean.split("-") if len(w) > 3]
+                        if any(w in fname for w in words) or name_clean in fname:
+                            fp = os.path.join(d, f)
+                            if fp not in found: found.append(fp)
+                return found
+
+            def _get_shipping_generic(q):
+                if not os.path.exists(logistics_p): return None, None
+                lg = json.load(open(logistics_p, "r", encoding="utf-8"))
+                q_norm = q.lower().strip()
+                for z, c in lg.items():
+                    if q_norm in z.lower() or z.lower() in q_norm:
+                        if isinstance(c, dict):
+                            val = c.get('costo', '0')
+                            if 'sin cargo' in str(val).lower(): return 0, str(z)
+                            digits = re.sub(r'\D', '', str(val))
+                            return (int(digits) if digits else 0), str(z)
+                        return c, str(z)
+                return None, None
+
+            def _ia_should_advance(cur_n, nxt_n, body_):
+                nodo_a = cur_n.get('name', 'actual')
+                nodo_s = nxt_n.get('name', 'siguiente') if nxt_n else 'fin'
+                msgs = cache_get_history(phone, inst_name, limit=4)
+                hist = " | ".join([str(m.get('role','')) + ": " + str(m.get('content',''))[:50] for m in msgs])
+                prompt = (
+                    "[FLUJO] Nodo actual: " + nodo_a + ". Nodo siguiente: " + nodo_s + ". "
+                    "Historial: " + hist + ". Ultimo mensaje: " + body_ + ". "
+                    "[TAREA] El cliente ya tiene info del nodo actual y quiere avanzar? "
+                    "Responde SOLO: AVANZAR o ESPERAR"
+                )
+                try:
+                    d = query_ollama(prompt, "Coordinador de flujo. Solo respondes AVANZAR o ESPERAR.", inst_name)
+                    return "AVANZAR" in d.upper()
+                except:
+                    return False
+
+            def _resolve_file(filename):
+                for dp in [
+                    os.path.join(CONFIG_DIR, inst_name, "media", filename),
+                    os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "general", filename),
+                    os.path.join(CONFIG_DIR, f"company_{company_id}", "media", filename),
+                    os.path.join(MEDIA_LIB_DIR, inst_name, filename),
+                ]:
+                    if os.path.exists(dp): return dp
+                return None
+
+            current_node = nodes.get(state)
+            new_state = state
+
+            if current_node:
+                ntype = current_node['type']
+                ndata = current_node.get('data', {})
+
+                if ntype == 'identity':
+                    if "CONFIRMING:" not in session_ctx:
+                        name_clean = body.replace("[NOTA DE VOZ]:", "").replace("me llamo", "").replace("soy", "").strip().title()
+                        update_session(phone, inst_name, summary="CONFIRMING:" + name_clean, name=name_clean)
+                        _send(jid, inst_name, "Gracias " + name_clean + ", es correcto? (SI/NO)")
+                        processing_count -= 1; return
+                    else:
+                        name_stored = session_ctx.replace("CONFIRMING:", "").strip()
+                        if any(x in body.upper() for x in ["SI", "OK", "CORRECTO", "DALE", "CLARO"]):
+                            new_state = next_node_map.get(state)
+                            update_session(phone, inst_name, summary="", name=name_stored)
+                        else:
+                            update_session(phone, inst_name, summary="")
+                            _send(jid, inst_name, "Por favor, decime tu nombre nuevamente.")
+                            processing_count -= 1; return
+
+                elif ntype == 'rag':
+                    history_data = cache_get_history(phone, inst_name, limit=8)
+                    res = query_ollama(body, ia_prompt, inst_name, history=history_data)
+                    _send(jid, inst_name, res)
+                    try: cache_add_message(phone, inst_name, 'assistant', res)
+                    except: pass
+                    next_nid = next_node_map.get(state)
+                    next_node_obj = nodes.get(next_nid) if next_nid else None
+                    if _ia_should_advance(current_node, next_node_obj, body):
+                        new_state = next_nid
+
+                elif ntype == 'calculator':
+                    ask_text = ndata.get('ask_text', 'En que zona seria la entrega?')
+                    confirm_tpl = ndata.get('confirm_text', 'Envio a {zona}: ${costo}. Total: ${total}. Confirmamos?')
+                    if "CALC_WAITING" not in session_ctx and "CALC_ZONA:" not in session_ctx:
+                        update_session(phone, inst_name, summary=session_ctx + "|CALC_WAITING")
+                        _send(jid, inst_name, ask_text)
+                        processing_count -= 1; return
+                    elif "CALC_WAITING" in session_ctx:
+                        costo, zona_encontrada = _get_shipping_generic(body)
+                        precio_art = 0
+                        pm = re.search(r'PRECIO:(\d+)', session_ctx)
+                        if pm: precio_art = int(pm.group(1))
+                        if costo is None:
+                            _send(jid, inst_name, "No tengo precio exacto para " + body.upper() + ". Consulta con un asesor.")
+                            processing_count -= 1; return
+                        total = precio_art + costo
+                        costo_str = "Sin cargo" if costo == 0 else "$" + f"{costo:,}"
+                        msg = confirm_tpl.replace("{zona}", body.upper()).replace("{costo}", costo_str).replace("{total}", "$" + f"{total:,}")
+                        update_session(phone, inst_name, summary=session_ctx.replace("|CALC_WAITING", "|CALC_ZONA:" + body + "|TOTAL:" + str(total)))
+                        _send(jid, inst_name, msg)
+                        new_state = next_node_map.get(state)
+                    else:
+                        new_state = next_node_map.get(state)
+
+                elif ntype == 'ticket':
+                    if is_multimedia or any(x in body.upper() for x in ["COMPROBANTE", "LISTO", "ENVIADO", "PAGO", "TRANSFE"]):
+                        datos = "Comprobante recibido con exito!\n\nPor favor, completame estos datos:"
+                        try:
+                            datos_file = ndata.get('file', 'datos.txt')
+                            dp = _resolve_file(datos_file)
+                            if dp: datos = "Comprobante recibido con exito! OK\n\n" + open(dp, encoding="utf-8").read()
+                        except: pass
+                        _send(jid, inst_name, datos)
+                        cuidados = _resolve_file("cuidados.pdf")
+                        if not cuidados:
+                            for gf in os.listdir(os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "general")):
+                                if "cuidados" in gf.lower() or "envio" in gf.lower():
+                                    cuidados = os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "general", gf); break
+                        if cuidados and os.path.exists(cuidados): _send_media(jid, inst_name, cuidados)
+                        new_state = next_node_map.get(state)
+                    else:
+                        _send(jid, inst_name, "Aguardando el comprobante de transferencia...")
+                        processing_count -= 1; return
+
+            # ENTRY ACTIONS: ejecutar nodos encadenados automaticos
+            while new_state and new_state != state:
+                state = new_state
+                current_node = nodes.get(state)
+                if not current_node: break
+                ntype = current_node['type']
+                ndata = current_node.get('data', {})
+
+                if ntype == 'message':
+                    text = ndata.get('text', '')
+                    if text: _send(jid, inst_name, text)
+                    new_state = next_node_map.get(state)
+
+                elif ntype == 'file_send':
+                    if ndata.get('dynamic'):
+                        articulo = ""
+                        for pat in ['RAZA:([^|]+)', 'ARTICULO:([^|]+)']:
+                            pm = re.search(pat, session_ctx)
+                            if pm: articulo = pm.group(1).strip(); break
+                        if articulo:
+                            general_img = os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "extracted", "IMG-20260423-WA0021.jpg")
+                            if os.path.exists(general_img): _send_media(jid, inst_name, general_img)
+                            medios = _fuzzy_find_media(articulo)
+                            if medios:
+                                for m_path in medios[:4]: _send_media(jid, inst_name, m_path)
+                            else:
+                                fb = ndata.get('fallback_text', 'No tenemos fotos de ' + articulo + ' aun. Podes subir imagenes desde la Biblioteca de Medios en el Dashboard.')
+                                _send(jid, inst_name, fb)
+                        else:
+                            _send(jid, inst_name, "No pude identificar el articulo para buscar medios.")
+                    else:
+                        filename = ndata.get('file', '')
+                        if filename:
+                            fp = _resolve_file(filename)
+                            if fp: _send_media(jid, inst_name, fp)
+                    text_after = ndata.get('text_after', '')
+                    if text_after: _send(jid, inst_name, text_after)
+                    new_state = next_node_map.get(state)
+
+                elif ntype == 'approval':
+                    try:
+                        import sqlite3 as _sq3
+                        conn_tk = _sq3.connect(DB_PATH, timeout=30)
+                        c_tk = conn_tk.cursor()
+                        c_tk.execute("INSERT INTO tickets (phone, instance, summary, status) VALUES (?, ?, ?, 'PENDING')", (phone, inst_name, session_ctx[:200]))
+                        conn_tk.commit(); conn_tk.close()
+                        logger.info(f"[TICKET] Creado para {phone}")
+                    except Exception as e_tk: logger.error(f"[TICKET ERROR] {e_tk}")
+                    _send(jid, inst_name, "Tu pedido quedo registrado y esta pendiente de aprobacion. Te avisamos en breve!")
+                    break
+
+                elif ntype == 'external_msg':
+                    new_state = next_node_map.get(state)
+
+                elif ntype == 'calculator':
+                    ask_text = ndata.get('ask_text', 'En que zona seria la entrega?')
+                    _send(jid, inst_name, ask_text)
+                    update_session(phone, inst_name, summary=session_ctx + "|CALC_WAITING")
+                    break
+
                 else:
-                    # Si dice algo que no es una duda de productos, solo recordar que estamos procesando
-                    _send(jid, inst_name, "¡Excelente! Ya agendé tu pedido. En breve un administrador confirmará la reserva. ¿Necesitás ver algo más mientras tanto?")
-                    processing_count -= 1; return
+                    break
 
-        # --- CANAL ADMIN ---
-        if phone in ADMIN_PHONES:
-            if body.startswith("#"):
-                _send(jid, inst_name, "Comando admin ejecutado."); processing_count -= 1; return
-            # Se elimina bloqueo de audio para admin para permitir flujo de ventas normal
-
-        # --- IA KERNEL (STANDALONE) ---
-        if manual == 1: processing_count -= 1; return
-        knowledge = cache_get_knowledge(inst_name)
-        history = cache_get_history(phone, inst_name, limit=10)
-        prompt = f"ERES UN EXPERTO EN {inst_name}. CONTEXTO:\n{knowledge[:8000]}\nHISTORIAL:\n{history}\n"
-        
-        # OPTIMIZACIÓN: No llamar a Ollama para mensajes de STRESS
-        if str(phone).startswith("STRESS_"):
-            res_ia = f"[SIMULACIÓN] Respuesta automática para: {body[:30]}..."
-        else:
-            res_ia = query_ollama(body, prompt, inst_name)
-            
-        _send(jid, inst_name, res_ia)
-        processing_count -= 1; return
+            update_session(phone, inst_name, state=state)
+            processing_count -= 1; return
     except Exception as e:
         logger.error(f" [!] Error critico en process_ia_async: {e}")
-        processing_count -= 1
+        try:
+            import traceback
+            open(r"C:\SaaSIA\ai_core\logs\crash.log", "w", encoding="utf-8").write(str(e) + "\n" + traceback.format_exc())
+        except: pass
+    finally:    processing_count -= 1
 
 
 def _send(jid, inst, text):

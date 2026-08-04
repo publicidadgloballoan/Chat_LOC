@@ -97,7 +97,7 @@ def run_diagnostic_agent():
                                 os.environ["LICENSE_SERVER"] = lic_server
                                 os.environ["LICENSE_TOKEN"] = lic_token
                     except Exception as ce:
-                        logger.warning(f" [DIAG-AGENT] Error leyendo config/license_config.json: {ce}")
+                        logger.debug(f" [DIAG-AGENT] Error leyendo config/license_config.json: {ce}")
             
             if not lic_server or not lic_token:
                 # No hay licencia configurada aún, esperar al siguiente ciclo
@@ -111,7 +111,7 @@ def run_diagnostic_agent():
                 cpu_percent = psutil.cpu_percent(interval=None)
                 ram_percent = psutil.virtual_memory().percent
             except Exception as pe:
-                logger.warning(f" [DIAG-AGENT] Error al leer psutil: {pe}")
+                logger.debug(f" [DIAG-AGENT] Error al leer psutil: {pe}")
 
             # 2. Estado de conexión con Ollama
             ollama_status = "error"
@@ -140,7 +140,7 @@ def run_diagnostic_agent():
                             "status": inst_status
                         })
             except Exception as ee:
-                logger.warning(f" [DIAG-AGENT] No se pudo conectar a Evolution API: {ee}")
+                logger.debug(f" [DIAG-AGENT] No se pudo conectar a Evolution API: {ee}")
 
             # 3.2. Instagram (ig_sessions)
             try:
@@ -153,7 +153,7 @@ def run_diagnostic_agent():
                             "status": "connected"
                         })
             except Exception as ie:
-                logger.warning(f" [DIAG-AGENT] No se pudo conectar a Instagram Service: {ie}")
+                logger.debug(f" [DIAG-AGENT] No se pudo conectar a Instagram Service: {ie}")
 
             # 4. Enviar Heartbeat al servidor central de licencias
             payload = {
@@ -212,10 +212,10 @@ def run_diagnostic_agent():
                     logger.info(f" [DIAG-AGENT] ✅ Resultado de diagnóstico #{task_id} reportado.")
                     
             else:
-                logger.warning(f" [DIAG-AGENT] Heartbeat rechazado por el servidor de licencias (Status: {hb_resp.status_code})")
+                logger.debug(f" [DIAG-AGENT] Heartbeat rechazado por el servidor de licencias (Status: {hb_resp.status_code})")
 
         except Exception as e:
-            logger.error(f" [DIAG-AGENT] Excepción en loop de diagnóstico: {e}")
+            logger.debug(f" [DIAG-AGENT] Excepción en loop de diagnóstico: {e}")
 
         time.sleep(30)
 
@@ -266,14 +266,30 @@ DB_PATH = os.path.join(CONFIG_DIR, "brain_sessions.db")
 
 # Control de Concurrencia y Saturacion
 processing_count = 0
-MAX_CONCURRENT = 5
+MAX_CONCURRENT = 30
 ADMIN_PHONES = ["5491136822400", "5491100000000"] 
+
+def normalize_argentina_wa_phone(phone_str):
+    clean = re.sub(r'[^\d]', '', str(phone_str))
+    if not clean:
+        return clean
+    clean = clean.lstrip('0')
+    if len(clean) == 10:
+        return "549" + clean
+    if len(clean) == 11 and clean.startswith("9"):
+        return "54" + clean
+    if len(clean) == 12 and clean.startswith("54"):
+        return "549" + clean[2:]
+    return clean
+
 COMMAND_LOG_PATH = os.path.join(os.path.dirname(__file__), "command_logs.json")
 CUSTOM_COMMANDS_PATH = os.path.join(os.path.dirname(__file__), "custom_commands.json")
 MEDIA_LIB_DIR = os.path.join(os.path.dirname(__file__), "assets")
 os.makedirs(MEDIA_LIB_DIR, exist_ok=True)
 processing_contacts = set() # Global dedup for MKT loop
 ia_queue = queue.PriorityQueue()
+import itertools
+queue_counter = itertools.count()
 SYSTEM_STATUS = {
     "cpu": 0, 
     "queue_size": 0, 
@@ -349,16 +365,17 @@ def cache_get_knowledge(inst_name):
         # Tambien se pueden leer archivos sueltos en el directorio knowledge de la empresa
         company_kn_dir = os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge")
         if os.path.exists(company_kn_dir):
-            for filename in os.listdir(company_kn_dir):
-                if filename not in ["knowledge.txt", "consolidated_knowledge.md"]:
-                    filepath = os.path.join(company_kn_dir, filename)
-                    if os.path.isfile(filepath):
-                        try:
-                            with open(filepath, "r", encoding="utf-8") as f:
-                                knowledge += f"\n--- DOCUMENTO GLOBAL: {filename} ---\n"
-                                knowledge += f.read() + "\n\n"
-                        except Exception as e:
-                            logger.error(f"Error leyendo {filepath}: {e}")
+            for root, dirs, files in os.walk(company_kn_dir):
+                for filename in files:
+                    if filename not in ["knowledge.txt", "consolidated_knowledge.md"]:
+                        filepath = os.path.join(root, filename)
+                        if filepath.endswith(".md") or filepath.endswith(".txt"):
+                            try:
+                                with open(filepath, "r", encoding="utf-8") as f:
+                                    knowledge += f"\n--- DOCUMENTO GLOBAL: {filename} ---\n"
+                                    knowledge += f.read() + "\n\n"
+                            except Exception as e:
+                                logger.error(f"Error leyendo {filepath}: {e}")
 
     # Continuar con el conocimiento especifico de la instancia
     consolidated_path = os.path.join(CONFIG_DIR, inst_name, "consolidated_knowledge.md")
@@ -370,7 +387,7 @@ def cache_get_knowledge(inst_name):
         json_dirs.append(os.path.join(CONFIG_DIR, f"company_{company_id}"))
 
     for jdir in json_dirs:
-        for json_file in ["pricing.json", "identity.json", "logistics.json"]:
+        for json_file in ["pricing.json", "identity.json"]:
             jp = os.path.join(jdir, json_file)
             if os.path.exists(jp):
                 try:
@@ -397,16 +414,17 @@ def cache_get_knowledge(inst_name):
     # Tambien leer otros archivos en la carpeta de knowledge de la instancia especifica
     inst_kn_dir = os.path.join(CONFIG_DIR, inst_name, "knowledge")
     if os.path.exists(inst_kn_dir):
-        for filename in os.listdir(inst_kn_dir):
-            if filename not in ["knowledge.txt", "consolidated_knowledge.md"]:
-                filepath = os.path.join(inst_kn_dir, filename)
-                if os.path.isfile(filepath):
-                    try:
-                        with open(filepath, "r", encoding="utf-8") as f:
-                            knowledge += f"\n--- DOCUMENTO DEL CANAL: {filename} ---\n"
-                            knowledge += f.read() + "\n\n"
-                    except Exception as e:
-                        pass
+        for root, dirs, files in os.walk(inst_kn_dir):
+            for filename in files:
+                if filename not in ["knowledge.txt", "consolidated_knowledge.md"]:
+                    filepath = os.path.join(root, filename)
+                    if filepath.endswith(".md") or filepath.endswith(".txt"):
+                        try:
+                            with open(filepath, "r", encoding="utf-8") as f:
+                                knowledge += f"\n--- DOCUMENTO DEL CANAL: {filename} ---\n"
+                                knowledge += f.read() + "\n\n"
+                        except Exception as e:
+                            pass
     
     knowledge_cache[inst_name] = {"data": knowledge, "ts": now, "size": len(knowledge)}
     logger.info(f" [CACHE-MISS] Conocimiento de {inst_name} cargado a RAM ({len(knowledge)} chars)")
@@ -535,8 +553,8 @@ def ia_queue_worker(worker_id):
             SYSTEM_STATUS["last_worker_heartbeat"] = time.time()
             
             try:
-                # El PriorityQueue devuelve (prioridad, tarea)
-                priority, task = ia_queue.get(timeout=5)
+                # El PriorityQueue devuelve (prioridad, counter, tarea)
+                priority, cnt, task = ia_queue.get(timeout=5)
             except queue.Empty:
                 continue
 
@@ -659,12 +677,11 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)''')
     
     c.execute('''CREATE TABLE IF NOT EXISTS tickets
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, channel TEXT, 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, instance TEXT, channel TEXT, 
                   status TEXT DEFAULT 'open', summary TEXT, a3 INTEGER DEFAULT 0,
                   assigned_to TEXT, priority TEXT DEFAULT 'normal',
                   metadata TEXT, company_id INTEGER, summary_ia TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     
-    # Migración de columnas faltantes para tickets (compatibilidad con bases de datos previas)
     try:
         c.execute("SELECT company_id FROM tickets LIMIT 1")
     except sqlite3.OperationalError:
@@ -672,6 +689,15 @@ def init_db():
             c.execute("ALTER TABLE tickets ADD COLUMN company_id INTEGER")
         except Exception as e:
             logger.error(f" [DB-MIGRATE] Error agregando company_id a tickets: {e}")
+            
+    try:
+        c.execute("SELECT instance FROM tickets LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE tickets ADD COLUMN instance TEXT")
+            logger.info(" [DB-MIGRATE] Columna instance agregada a tickets.")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando instance a tickets: {e}")
             
     try:
         c.execute("SELECT summary_ia FROM tickets LIMIT 1")
@@ -805,6 +831,32 @@ def log_message(phone, instance, message, direction, trace_id=None, origin='IA')
     except Exception as e:
         logger.error(f" [DB-ERR] log_message: {e}")
 
+def _extract_price_generic(v, query=None):
+    if isinstance(v, (int, float)):
+        return int(v)
+    if isinstance(v, str):
+        # Intentar extraer digitos
+        digits = re.sub(r'[^\d]', '', v)
+        return int(digits) if digits else 0
+    if isinstance(v, dict):
+        # 1. Si hay query, buscar coincidencias especificas en las llaves (ej: "macho" o "hembra")
+        if query:
+            q_l = query.lower()
+            for key in v.keys():
+                if key.lower() in q_l:
+                    return _extract_price_generic(v[key], query)
+        # 2. Buscar claves comunes de precio
+        for key in ["price", "precio", "price_effective", "precio_efectivo", "monto", "cost", "costo", "value", "valor"]:
+            if key in v:
+                return _extract_price_generic(v[key], query)
+        # 3. Buscar cualquier clave con valor numerico valido
+        for k_val, val_val in v.items():
+            parsed = _extract_price_generic(val_val, query)
+            if parsed > 0:
+                return parsed
+        return 0
+    return 0
+
 def log_command(admin_phone, instance, command, response):
     try:
         logs = []
@@ -821,21 +873,10 @@ def log_command(admin_phone, instance, command, response):
     except Exception as e: logger.error(f" [LOG-CMD] Error: {e}")
 
 def get_company_media_path(company_id, file_name=None):
-    base = MEDIA_LIB_DIR
     if company_id:
-        try:
-            conn = sqlite3.connect(DB_PATH, timeout=30)
-            c = conn.cursor()
-            c.execute("SELECT name FROM companies WHERE id=?", (company_id,))
-            row = c.fetchone()
-            conn.close()
-            if row:
-                folder_name = row[0].lower()
-                base = os.path.join(MEDIA_LIB_DIR, folder_name)
-            else:
-                base = os.path.join(MEDIA_LIB_DIR, f"company_{company_id}")
-        except:
-            base = os.path.join(MEDIA_LIB_DIR, f"company_{company_id}")
+        base = os.path.join(CONFIG_DIR, f"company_{company_id}", "media")
+    else:
+        base = MEDIA_LIB_DIR
     
     if not os.path.exists(base): os.makedirs(base, exist_ok=True)
     if file_name:
@@ -888,52 +929,44 @@ def get_system_stats():
         "ram_used": f"{ram.percent}%"
     }
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "services"))
+from ia_kernel import ia_kernel
+
+from cachetools import TTLCache
+import hashlib
+import json
+
+# Cache for LLM responses: max 2000 items, TTL 3600 seconds (1 hour)
+_ia_cache = TTLCache(maxsize=2000, ttl=3600)
+
 def query_ollama(user_msg, system_prompt="Eres un asistente útil.", inst_name="default", history=None):
-    max_retries = 2
-    for attempt in range(max_retries):
-        try:
-            ia_options = {"num_ctx": 4096, "temperature": 0.3, "num_predict": 2048}
-            try:
-                _, conf_a2, _ = cache_get_config(inst_name)
-                ia_options.update({k: v for k, v in conf_a2.items() if k in ia_options})
-            except: pass
+    try:
+        # Añadimos la regla de no enlaces que ya existía
+        system_prompt += "\n\nCRITICAL: DO NOT SEND ANY LINKS OR URLs. If you mention photos, just say they are being sent. NEVER invent Imgur or similar links."
+        
+        # Cache Key calculation
+        hist_str = json.dumps(history, sort_keys=True) if history else ""
+        raw_key = f"{user_msg}|{system_prompt}|{hist_str}"
+        cache_key = hashlib.md5(raw_key.encode('utf-8')).hexdigest()
+        
+        if cache_key in _ia_cache:
+            logger.info(" [IA CACHE] Cache hit for LLM query. Skipping inference.")
+            return _ia_cache[cache_key]
 
-
-            logger.info(f" [OLLAMA] Querying for {inst_name} (Attempt {attempt+1}/{max_retries}) ctx={ia_options['num_ctx']}...")
+        # Usamos el nuevo IAKernel para procesar el mensaje con failover (Ollama -> Grok)
+        response = ia_kernel.get_response(user_msg, system_prompt, history)
+        logger.info(f" [IA KERNEL] Respuesta obtenida de: {response.get('source')}")
+        
+        resp_text = response.get('text', "Error: IA no generó respuesta.")
+        if not resp_text.startswith("Error"):
+            _ia_cache[cache_key] = resp_text
             
-            messages = [{"role": "system", "content": system_prompt + "\n\nCRITICAL: DO NOT SEND ANY LINKS OR URLs. If you mention photos, just say they are being sent. NEVER invent Imgur or similar links."}]
-            if history:
-                messages.extend(history)
-            
-            if not history or history[-1]["content"] != user_msg:
-                messages.append({"role": "user", "content": user_msg})
-
-            r = requests.post("http://localhost:11434/api/chat", json={
-                "model": "llama3.2:3b-instruct-q4_K_M",
-                "messages": messages,
-                "options": ia_options, 
-                "stream": False
-            }, timeout=120)
-            
-            if r.status_code != 200:
-                logger.error(f" [OLLAMA] Error {r.status_code}: {r.text}")
-                if attempt < max_retries - 1: continue
-                return f"Error de motor IA (HTTP {r.status_code})"
-                
-            res = r.json().get('message', {}).get('content', '')
-            logger.info(f" [OLLAMA] Respuesta recibida ({len(res)} chars)")
-            if not res:
-                if attempt < max_retries - 1: continue
-                return "Error: IA no generó respuesta."
-            return res
-
-        except Exception as e:
-            logger.error(f" [OLLAMA ERROR] Intento {attempt+1}: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            return f"Error crítico de motor IA: {str(e)[:50]}"
-    return "Error crítico de motor IA"
+        return resp_text
+    except Exception as e:
+        logger.error(f" [IA KERNEL ERROR]: {e}")
+        return f"Error crítico de motor IA: {str(e)[:50]}"
 
 def get_chat_summary(phone, inst):
     """Genera un resumen de la conversación usando Ollama"""
@@ -1429,8 +1462,34 @@ def handle_api_data():
         if action == 'update_ticket':
             try:
                 tid, status, assigned, priority = data.get('id'), data.get('status'), data.get('assigned_to'), data.get('priority')
+                # Obtener info previa del ticket antes de actualizar
+                c.execute("SELECT phone, instance, status FROM tickets WHERE id=?", (tid,))
+                t_info = c.fetchone()
+                
                 c.execute("UPDATE tickets SET status=?, assigned_to=?, priority=? WHERE id=?", (status, assigned, priority, tid))
                 conn.commit()
+                
+                # Si el ticket pasa a estar aprobado/cerrado, avanzar la sesión del bot automáticamente
+                if t_info and status and status.lower() in ['approved', 'aprobado', 'closed', 'cerrado'] and t_info[2].lower() == 'pending':
+                    phone_tk, inst_tk = t_info[0], t_info[1]
+                    def auto_advance_approved_session():
+                        try:
+                            # Conectar a db local para ver el estado de la sesión
+                            conn_s = sqlite3.connect(DB_PATH, timeout=30)
+                            c_s = conn_s.cursor()
+                            c_s.execute("SELECT state FROM sessions WHERE phone=? AND instance=?", (phone_tk, inst_tk))
+                            s_row = c_s.fetchone()
+                            conn_s.close()
+                            if s_row and s_row[0] == 'node_11':
+                                logger.info(f" [AUTO-APPROVED] Aprobación detectada para ticket #{tid}. Avanzando sesión de {phone_tk} a node_12.")
+                                update_session(phone_tk, inst_tk, state='node_12')
+                                t_adv = threading.Thread(target=process_ia_async, args=(f"{phone_tk}@s.whatsapp.net", inst_tk, "", False, 1))
+                                t_adv.daemon = True
+                                t_adv.start()
+                        except Exception as adv_err:
+                            logger.error(f"[AUTO-APPROVED ERROR] {adv_err}")
+                    threading.Thread(target=auto_advance_approved_session, daemon=True).start()
+                
                 return jsonify({"success": True})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
 
@@ -1766,6 +1825,52 @@ def handle_api_data():
                 return jsonify({"success": True, "count": len(contacts)})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
 
+        if action == 'ocr_extract_contacts':
+            try:
+                import base64
+                b64_img = data.get('image', '')
+                if not b64_img:
+                    return jsonify({"success": False, "error": "No image provided"})
+                if ',' in b64_img:
+                    b64_img = b64_img.split(',', 1)[1]
+                file_bytes = base64.b64decode(b64_img)
+                import multimedia_decoder
+                numbers = multimedia_decoder.extraer_numeros_ocr(file_bytes)
+                return jsonify({"success": True, "numbers": numbers, "count": len(numbers)})
+            except Exception as e:
+                logger.error(f"[API-OCR-EXTRACT-ERR] {e}")
+                return jsonify({"success": False, "error": str(e)})
+
+        if action == 'save_ocr_contacts':
+            try:
+                contacts = data.get('contacts', [])
+                comp_id = data.get('companyId', 1)
+                saved_count = 0
+                for contact in contacts:
+                    phone = contact.get('phone')
+                    if not phone:
+                        continue
+                    name = contact.get('name', f"Pendiente ({phone})")
+                    group = contact.get('group', 'CLIENTES')
+                    origin = contact.get('origin', 'OCR_IMAGEN')
+                    meta = json.dumps(contact.get('metadata', {})) if isinstance(contact.get('metadata'), dict) else str(contact.get('metadata', ''))
+
+                    c.execute("""INSERT INTO contacts_agenda 
+                               (name, phone, last_channel, origin, group_name, metadata, company_id) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?)
+                               ON CONFLICT(phone) DO UPDATE SET 
+                               name=COALESCE(NULLIF(excluded.name, ''), contacts_agenda.name),
+                               origin=excluded.origin,
+                               group_name=excluded.group_name,
+                               company_id=COALESCE(excluded.company_id, contacts_agenda.company_id)""", 
+                               (name, phone, 'WA', origin, group, meta, comp_id))
+                    saved_count += 1
+                conn.commit()
+                return jsonify({"success": True, "count": saved_count})
+            except Exception as e:
+                logger.error(f"[API-SAVE-OCR-ERR] {e}")
+                return jsonify({"success": False, "error": str(e)})
+
         if action == 'import_mkt_contacts_list':
             try:
                 camp_id = data.get('campaignId')
@@ -1815,6 +1920,29 @@ def handle_api_data():
                 return jsonify({"success": True})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
 
+        if action == 'delete_chat':
+            try:
+                phone = data.get('phone')
+                if phone:
+                    c.execute("DELETE FROM sessions WHERE phone=?", (phone,))
+                    c.execute("DELETE FROM logs WHERE phone=?", (phone,))
+                    c.execute("DELETE FROM tickets WHERE phone=?", (phone,))
+                    conn.commit()
+                return jsonify({"success": True})
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+        if action == 'delete_all_chats':
+            try:
+                phones = data.get('phones', [])
+                if phones:
+                    placeholders = ','.join(['?' for _ in phones])
+                    c.execute(f"DELETE FROM sessions WHERE phone IN ({placeholders})", phones)
+                    c.execute(f"DELETE FROM logs WHERE phone IN ({placeholders})", phones)
+                    c.execute(f"DELETE FROM tickets WHERE phone IN ({placeholders})", phones)
+                    conn.commit()
+                return jsonify({"success": True})
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
         if action == 'get_rubros':
             try:
                 comp_id = data.get('companyId') or request.args.get('companyId')
@@ -1829,9 +1957,13 @@ def handle_api_data():
         if action == 'add_rubro':
             try:
                 name = data.get('name', '').upper().strip()
+                comp_id = data.get('companyId')
                 if name:
-                    c.execute("CREATE TABLE IF NOT EXISTS rubros (name TEXT PRIMARY KEY)")
-                    c.execute("INSERT OR IGNORE INTO rubros (name) VALUES (?)", (name,))
+                    c.execute("CREATE TABLE IF NOT EXISTS rubros (name TEXT, company_id INTEGER, PRIMARY KEY(name, company_id))")
+                    if comp_id:
+                        c.execute("INSERT OR IGNORE INTO rubros (name, company_id) VALUES (?, ?)", (name, comp_id))
+                    else:
+                        c.execute("INSERT OR IGNORE INTO rubros (name, company_id) VALUES (?, NULL)", (name,))
                     conn.commit()
                 return jsonify({"success": True})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
@@ -1839,8 +1971,12 @@ def handle_api_data():
         if action == 'delete_rubro':
             try:
                 name = data.get('name')
+                comp_id = data.get('companyId')
                 if name:
-                    c.execute("DELETE FROM rubros WHERE name=?", (name,))
+                    if comp_id:
+                        c.execute("DELETE FROM rubros WHERE name=? AND company_id=?", (name, comp_id))
+                    else:
+                        c.execute("DELETE FROM rubros WHERE name=? AND company_id IS NULL", (name,))
                     conn.commit()
                 return jsonify({"success": True})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
@@ -2362,9 +2498,16 @@ def handle_api_data():
     # 6. Conteo de pendientes
     if comp_id:
         c.execute("SELECT COUNT(*) FROM sessions WHERE pending_handoff=1 AND instance IN (SELECT instance FROM connections WHERE company_id=?)", (comp_id,))
+        count_s = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('closed', 'delivered', 'cancelled') AND company_id=?", (comp_id,))
+        count_t = c.fetchone()[0]
+        pending_count = count_s + count_t
     else:
         c.execute("SELECT COUNT(*) FROM sessions WHERE pending_handoff=1")
-    pending_count = c.fetchone()[0]
+        count_s = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('closed', 'delivered', 'cancelled')")
+        count_t = c.fetchone()[0]
+        pending_count = count_s + count_t
 
     # 7. MKT y Trace
     if comp_id:
@@ -2521,14 +2664,35 @@ def rebuild_knowledge(inst_name):
 def process_ia_async(jid, body, phone, inst_name, msg_data):
     global processing_count
     processing_count += 1
+    
+    if processing_count > 15:
+        _send(jid, inst_name, "Tenemos mucho tráfico de mensajes en este momento, por favor espere que en breve se le responderá")
+
     try:
         logger.info(f" [PROC-START] Hilo iniciado para {phone} en {inst_name}. Body: {body[:30]}")
         # 1. Normalización y Configuración
         inst_name = inst_name.replace("@", "")
         conf_a1, _, _ = cache_get_config(inst_name)
-        step = conf_a1.get("step", "IA_A2_A3")
+        step = conf_a1.get("step", "STEP_NICO_VENTAS")
         state, manual, cur_name, chan, _, handoff, named, cur_summary = get_session(phone, inst_name)
         logger.info(f" [DEBUG-TRACE] get_session OK. State: {state}")
+        
+        # --- PAUSA POR TICKET ACTIVO / HANDOFF ---
+        try:
+            conn_tk = sqlite3.connect(DB_PATH, timeout=5)
+            c_tk = conn_tk.cursor()
+            c_tk.execute("SELECT id FROM tickets WHERE phone=? AND instance=? AND status NOT IN ('closed', 'delivered', 'cancelled')", (phone, inst_name))
+            active_tk = c_tk.fetchone()
+            conn_tk.close()
+        except Exception as e:
+            logger.error(f"[TK-CHK] {e}")
+            active_tk = None
+
+        if active_tk or handoff == 1 or manual == 1:
+            logger.info(f" [PROC] IA Pausada para {phone} (Ticket activo: {bool(active_tk)} / Handoff: {handoff} / Manual: {manual})")
+            processing_count -= 1
+            return
+
         inner = msg_data.get('message', {})
         # --- INTERCEPTOR DE MULTIMEDIA (Pre-procesamiento) ---
         is_multimedia = (body == "__MULTIMEDIA__")
@@ -2571,42 +2735,58 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                 if not os.path.exists(catalog_p) and os.path.exists(os.path.join(conf_c, "media_catalog.json")): catalog_p = os.path.join(conf_c, "media_catalog.json")
 
             ia_prompt = conf_a1.get("ia_prompt", "Eres un experto en Nico Ventas.")
-            logger.info(f" [DEBUG-TRACE] Paths and prompt OK")
-            
-            # Helpers
-            def _get_price(q):
-                if not os.path.exists(pricing_p): return None, None
-                pr = json.load(open(pricing_p, "r", encoding="utf-8"))
-                q_l = q.lower()
-                for b, d in pr.items():
-                    b_l = b.lower()
-                    # Coincidencia más flexible
-                    if b_l in q_l or q_l in b_l or any(w in q_l for w in b_l.split() if len(w) > 3):
-                        sex = "hembra" if "hembra" in q_l else "macho"
-                        # Extraer precio numérico limpio
-                        price_str = str(d.get(sex, d.get("precio_efectivo", "750000")))
-                        p_v = int(re.sub(r'[^\d]', '', price_str))
-                        return b, p_v
-                return None, None
+            kn = cache_get_knowledge(inst_name)
+            if kn:
+                ia_prompt += f"\n\n--- BASE DE CONOCIMIENTO (LEER ESTRICTAMENTE) ---\n{kn}\n-----------------------------------\n"
+            try:
+                if os.path.exists(pricing_p):
+                    pr_data = json.load(open(pricing_p, "r", encoding="utf-8"))
+                    items_list = []
+                    if isinstance(pr_data, dict) and "data" in pr_data:
+                        data_content = pr_data["data"]
+                        if isinstance(data_content, dict):
+                            # Buscar cualquier clave que contenga una lista (ej: "breeds", "products", "items")
+                            for key_val, val_val in data_content.items():
+                                if isinstance(val_val, list):
+                                    items_list = val_val
+                                    break
+                    elif isinstance(pr_data, dict):
+                        # Formato legacy plano (key: value_dict)
+                        for k, v in pr_data.items():
+                            p_val = _extract_price_generic(v)
+                            items_list.append({"name": k, "price": p_val})
 
-            def _get_shipping(q):
-                if not os.path.exists(logistics_p): return 35000
-                lg = json.load(open(logistics_p, "r", encoding="utf-8"))
-                q_u = q.upper()
-                for z, c in lg.items():
-                    if z in q_u or q_u in z:
-                        if isinstance(c, dict):
-                            val = c.get('costo', '0')
-                            if 'sin cargo' in str(val).lower(): return 0
-                            digits = re.sub(r'\D', '', str(val))
-                            return int(digits) if digits else 0
-                        return c
-                interior = lg.get("Interior del País", {})
-                if isinstance(interior, dict):
-                    val = interior.get('costo', '435000')
-                    digits = re.sub(r'\D', '', str(val))
-                    return int(digits) if digits else 435000
-                return 435000
+                    if items_list:
+                        pricing_txt = "\n".join([f"- {b.get('name')}: ${b.get('price'):,}" for b in items_list if isinstance(b, dict) and b.get('name') and b.get('price')])
+                        ia_prompt += f"\n\n--- CATÁLOGO OFICIAL DE PRECIOS (LEER ESTRICTAMENTE) ---\n{pricing_txt}\n-----------------------------------\n"
+            except Exception as pr_err:
+                logger.error(f"[INJECT-PRICING ERROR] {pr_err}")
+
+            try:
+                if os.path.exists(logistics_p):
+                    lg_data = json.load(open(logistics_p, "r", encoding="utf-8"))
+                    ia_prompt += f"\n\n--- LOGÍSTICA Y VENTAS (LEER ESTRICTAMENTE) ---\n{json.dumps(lg_data, ensure_ascii=False, indent=2)}\n-----------------------------------\n"
+            except Exception as lg_err:
+                logger.error(f"[INJECT-LOGISTICS ERROR] {lg_err}")
+
+            try:
+                media_cat_p = os.path.join(CONFIG_DIR, inst_name, "configs", "media_catalog.json")
+                if not os.path.exists(media_cat_p) and company_id:
+                    media_cat_p = os.path.join(CONFIG_DIR, f"company_{company_id}", "configs", "media_catalog.json")
+                
+                if os.path.exists(media_cat_p):
+                    cat_data = json.load(open(media_cat_p, "r", encoding="utf-8"))
+                    if "data" in cat_data:
+                        cat_txt = ""
+                        for rz, rz_data in cat_data["data"].items():
+                            m_list = rz_data.get("media", [])[:3] # max 3 files per breed
+                            if m_list:
+                                cat_txt += f"RAZA: {rz} -> ARCHIVOS: {', '.join(m_list)}\n"
+                        ia_prompt += f"\n\n--- CATLOGO MULTIMEDIA DISPONIBLE (FOTOS Y PDFS) ---\nSI EL CLIENTE PIDE UNA FOTO O PDF, Y EXISTE EN ESTE CATLOGO, DEBES DEVOLVER AL FINAL DE TU RESPUESTA EL COMANDO EXACTO: __MULTIMEDIA__: <nombre_del_archivo>\n\nArchivos disponibles:\n{cat_txt}\n-----------------------------------\n"
+            except Exception as cat_err:
+                logger.error(f"[INJECT-CATALOG ERROR] {cat_err}")
+
+            logger.info(f" [DEBUG-TRACE] Paths and prompt OK")
 
             # Cargar flujo activo
             active_flow_p = os.path.join(CONFIG_DIR, inst_name, "configs", "active_flow.json")
@@ -2642,39 +2822,147 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
             else:
                 new_state = state
 
-            logistics_p = os.path.join(CONFIG_DIR, f"company_{company_id}", "configs", "logistics.json")
+            # Eliminado overwrite incondicional de rutas
             session_ctx = cur_summary if cur_summary else ""
 
             def _fuzzy_find_media(articulo):
-                found = []
                 name_clean = articulo.lower().replace(" ", "-").replace("_", "-")
                 search_dirs = [
                     os.path.join(CONFIG_DIR, inst_name, "media"),
                     os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "extracted"),
                     os.path.join(CONFIG_DIR, f"company_{company_id}", "media"),
                 ]
+                logger.info(f" [FUZZY-FIND] Buscando media para: '{articulo}' (normalizado: '{name_clean}')")
+                scored_files = []
+                seen_paths = set()
+
+                # ---- PASS 1: search via manifest.json context field ----
                 for d in search_dirs:
-                    if not os.path.exists(d): continue
+                    manifest_path = os.path.join(d, "manifest.json")
+                    if not os.path.exists(manifest_path):
+                        continue
+                    try:
+                        manifest_data = json.load(open(manifest_path, "r", encoding="utf-8"))
+                    except Exception:
+                        continue
+                    articulo_lower = articulo.lower()
+                    name_clean_lower = name_clean.replace("-", " ")
+                    for entry in manifest_data:
+                        ctx = (entry.get("context") or "").lower()
+                        summ = (entry.get("summary") or "").lower()
+                        combined = ctx + " " + summ
+                        if not combined.strip():
+                            continue
+                        # Exact breed match
+                        score = 0
+                        if articulo_lower in combined:
+                            score = 20
+                        elif name_clean_lower in combined:
+                            score = 15
+                        else:
+                            # Partial word match
+                            words = [w for w in articulo_lower.split() if len(w) > 3]
+                            score = sum(2 for w in words if w in combined)
+                        if score > 0:
+                            fname = entry.get("name", "")
+                            fp = os.path.join(d, fname)
+                            if os.path.exists(fp) and fp not in seen_paths:
+                                # Prefer images and videos over PDFs in this pass
+                                if fname.lower().endswith(('.jpg', '.jpeg', '.png', '.mp4')):
+                                    scored_files.append((score + 5, fp))
+                                else:
+                                    scored_files.append((score, fp))
+                                seen_paths.add(fp)
+                                logger.info(f" [FUZZY-FIND] Manifest match: {fname} (score={score}, ctx='{ctx[:40]}')")
+
+                # ---- PASS 2: fallback - search by filename keywords ----
+                for d in search_dirs:
+                    if not os.path.exists(d):
+                        continue
                     for f in os.listdir(d):
+                        if f == "manifest.json":
+                            continue
                         fname = f.lower().replace(" ", "-").replace("_", "-")
                         words = [w for w in name_clean.split("-") if len(w) > 3]
-                        if any(w in fname for w in words) or name_clean in fname:
+                        match_count = sum(1 for w in words if w in fname)
+                        if name_clean in fname:
+                            match_count += 10
+                        if match_count > 0:
                             fp = os.path.join(d, f)
-                            if fp not in found: found.append(fp)
-                return found
+                            if fp not in seen_paths:
+                                scored_files.append((match_count, fp))
+                                seen_paths.add(fp)
+                                logger.info(f" [FUZZY-FIND] Filename match: {f} (score={match_count})")
+
+                scored_files.sort(key=lambda x: x[0], reverse=True)
+                logger.info(f" [FUZZY-FIND] Total encontrados: {len(scored_files)} archivos")
+                return [x[1] for x in scored_files]
+
 
             def _get_shipping_generic(q):
                 if not os.path.exists(logistics_p): return None, None
-                lg = json.load(open(logistics_p, "r", encoding="utf-8"))
-                q_norm = q.lower().strip()
-                for z, c in lg.items():
-                    if q_norm in z.lower() or z.lower() in q_norm:
-                        if isinstance(c, dict):
-                            val = c.get('costo', '0')
-                            if 'sin cargo' in str(val).lower(): return 0, str(z)
-                            digits = re.sub(r'\D', '', str(val))
-                            return (int(digits) if digits else 0), str(z)
-                        return c, str(z)
+                try:
+                    lg_raw = json.load(open(logistics_p, "r", encoding="utf-8"))
+                    
+                    # 1. Limpieza inicial de la consulta para aislar la localidad
+                    q_clean = re.sub(r'[¿?¡!\(\)]', '', q).lower().strip()
+                    for phrase in ["cuanto cuesta el envio", "cuánto cuesta el envío", "cuanto sale", "cuánto sale", "el envio", "el envío", "costo", "precio"]:
+                        q_clean = q_clean.replace(phrase, "")
+                    q_clean = q_clean.strip()
+
+                    zones_list = lg_raw.get("data", {}).get("shipping_zones", [])
+                    
+                    # 2. Búsqueda exacta / substring rápida (evita alucinar con Ollama en casos obvios)
+                    for z in zones_list:
+                        zn = z.get("zone", "").lower()
+                        if q_clean == zn or q_clean in zn or zn in q_clean:
+                            return int(z.get("cost", 0)), z.get("zone", "").upper()
+                    
+                    # Búsqueda substring rápida secundaria
+                    for z in zones_list:
+                        zn = z.get("zone", "").lower()
+                        if len(q_clean) > 2 and q_clean in zn:
+                            return int(z.get("cost", 0)), z.get("zone", "").upper()
+
+                    # 3. Fallback semántico con Ollama usando TODAS las zonas
+                    zone_names = [z.get("zone") for z in zones_list if z.get("zone")]
+                    zones_info = json.dumps(zone_names)
+                    prompt = (
+                        f"Nuestras zonas de entrega disponibles son: {zones_info}. "
+                        f"El cliente indicó como ubicación: '{q}'. "
+                        "¿A qué zona de la lista pertenece esta localidad? "
+                        "Ejemplos: 'Libertad' o 'Merlo' o 'Castelar' pertenecen a 'GBA'. 'Monserrat' pertenece a 'CABA'. "
+                        "Si la ciudad se menciona exactamente en la lista, elige esa. "
+                        "Responde SOLO con el nombre exacto de la zona tal como aparece en la lista. No agregues nada más. "
+                        "Si no pertenece a ninguna, responde 'Ninguno'."
+                    )
+                    res = query_ollama(prompt, "Buscador de Zonas", inst_name)
+                    res_clean = res.strip().strip("'\"").strip()
+                    
+                    for z in zones_list:
+                        if z.get("zone", "").lower() == res_clean.lower():
+                            logger.info(f" [SHIPPING-EXTRACT] Zona detectada por Ollama fallback: '{z.get('zone')}'")
+                            return int(z.get("cost", 0)), z.get("zone", "").upper()
+
+                    # Fallback secundario analizando texto de forma genérica
+                    res_upper = res.upper()
+                    q_upper = q.upper()
+                    
+                    for mz in sorted(main_zones, key=lambda x: x.get("cost", 0), reverse=True):
+                        cost_val = mz.get("cost")
+                        cost_str = str(cost_val) if cost_val is not None else ""
+                        zone_name = mz.get("zone", "")
+                        zone_upper = zone_name.upper()
+                        # Buscar si el costo o el nombre de la zona (o sus palabras clave) aparecen en la respuesta de Ollama
+                        words = [w for w in re.split(r'[^A-Z0-9]', zone_upper) if len(w) > 3 and w not in ["PROVINCIA", "OTRAS"]]
+                        if cost_str and cost_str in res_upper:
+                            if not words or any(w in res_upper or w in q_upper for w in words):
+                                return int(cost_val), zone_upper
+                        if any(w in res_upper for w in words) if words else False:
+                            return int(cost_val), zone_upper
+
+                except Exception as e:
+                    logger.error(f"[SHIPPING LOGISTICS ERROR] {e}")
                 return None, None
 
             def _ia_should_advance(cur_n, nxt_n, body_):
@@ -2683,13 +2971,15 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                 msgs = cache_get_history(phone, inst_name, limit=4)
                 hist = " | ".join([str(m.get('role','')) + ": " + str(m.get('content',''))[:50] for m in msgs])
                 prompt = (
-                    "[FLUJO] Nodo actual: " + nodo_a + ". Nodo siguiente: " + nodo_s + ". "
-                    "Historial: " + hist + ". Ultimo mensaje: " + body_ + ". "
-                    "[TAREA] El cliente ya tiene info del nodo actual y quiere avanzar? "
-                    "Responde SOLO: AVANZAR o ESPERAR"
+                    f"[FLUJO] Nodo actual: {nodo_a}. Nodo siguiente: {nodo_s}. "
+                    f"Historial reciente: {hist}. Último mensaje del cliente: {body_}. "
+                    "[TAREA] Analiza si el último mensaje del cliente RESPONDE adecuadamente a lo que el bot le pidió en el nodo actual. "
+                    "Si el bot le pidió una raza y el cliente solo dice 'Sí', es incompleto (debe decir ESPERAR). "
+                    "Si el cliente proporcionó la información requerida de forma clara (por ejemplo la raza que busca) y se puede avanzar, responde AVANZAR. MUY IMPORTANTE: Si ya indicó la raza que quiere, debes responder AVANZAR INCLUSO SI hace otras preguntas al mismo tiempo (ej: 'Quiero el caniche rojo, pasame fotos y como trabajan' -> AVANZAR). "
+                    "Responde SOLO con una palabra: AVANZAR o ESPERAR."
                 )
                 try:
-                    d = query_ollama(prompt, "Coordinador de flujo. Solo respondes AVANZAR o ESPERAR.", inst_name)
+                    d = query_ollama(prompt, "Coordinador de flujo estricto. Solo respondes AVANZAR o ESPERAR.", inst_name)
                     return "AVANZAR" in d.upper()
                 except:
                     return False
@@ -2729,14 +3019,216 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
 
                 elif ntype == 'rag':
                     history_data = cache_get_history(phone, inst_name, limit=8)
-                    res = query_ollama(body, ia_prompt, inst_name, history=history_data)
-                    _send(jid, inst_name, res)
-                    try: cache_add_message(phone, inst_name, 'assistant', res)
-                    except: pass
-                    next_nid = next_node_map.get(state)
-                    next_node_obj = nodes.get(next_nid) if next_nid else None
-                    if _ia_should_advance(current_node, next_node_obj, body):
-                        new_state = next_nid
+
+                    # --- INTERCEPCIÓN TEMPRANA KERNEL IA ---
+                    try:
+                        from ia_kernel import ia_kernel
+                        kernel_resp = ia_kernel.get_response(body, ia_prompt, history=history_data)
+                        if kernel_resp and kernel_resp.get("source") == "LOCAL_RULE_CATALOG":
+                            _send(jid, inst_name, kernel_resp["text"])
+                            try: cache_add_message(phone, inst_name, 'assistant', kernel_resp["text"])
+                            except: pass
+                            processing_count -= 1; return
+                    except Exception as e:
+                        logger.error(f"[KERNEL EARLY ERROR] {e}")
+                    # --- FIN INTERCEPCIÓN ---
+
+                    # --- EXTRACCIÓN DE ARTÍCULO DIRECTO DESDE PRICING.JSON ---
+                    articulo_detectado = None
+                    precio_v = None
+                    list_key = "items"
+                    try:
+                        if os.path.exists(pricing_p):
+                            pr_data = json.load(open(pricing_p, "r", encoding="utf-8"))
+                            catalog_items = []
+                            if isinstance(pr_data, dict) and "data" in pr_data:
+                                data_content = pr_data["data"]
+                                if isinstance(data_content, dict):
+                                    for key_val, val_val in data_content.items():
+                                        if isinstance(val_val, list):
+                                            catalog_items = [b.get("name", "") for b in val_val if isinstance(b, dict) and "name" in b]
+                                            list_key = key_val
+                                            break
+                            elif isinstance(pr_data, dict):
+                                catalog_items = list(pr_data.keys())
+                            
+                            # Reemplazado por detección optimizada en ia_kernel
+                            from ia_kernel import ia_kernel
+                            # Buscar en el mensaje del usuario
+                            b_match = ia_kernel.find_breed_by_query(body)
+                            if b_match:
+                                articulo_detectado = b_match.get("name")
+                                logger.info(f" [ITEM-EXTRACT] Match ia_kernel: '{articulo_detectado}'")
+                            else:
+                                # Si no lo nombró ahora, quizás ya lo eligió antes
+                                m_raza = re.search(r'RAZA:([^|]+)', session_ctx)
+                                if m_raza:
+                                    articulo_detectado = m_raza.group(1)
+                                    logger.info(f" [ITEM-EXTRACT] Raza recuperada de sesión: '{articulo_detectado}'")
+                                else:
+                                    # Fallback a Ollama si no hay match directo ni en sesión
+                                    best_match = None
+                                    best_score = 0
+                                    body_lower = body.lower()
+                                    for item in catalog_items:
+                                        item_words = [w for w in item.lower().split() if len(w) > 2]
+                                        if not item_words: continue
+                                        score = sum(1 for w in item_words if w in body_lower)
+                                        req_score = 1 if len(item_words) == 1 else 2
+                                        if score >= req_score and score > best_score:
+                                            best_score = score
+                                            best_match = item
+                                    if best_match:
+                                        articulo_detectado = best_match
+                                        logger.info(f" [ITEM-EXTRACT] Artículo detectado por puntuación: '{articulo_detectado}' (score={best_score})")
+                            
+                            # 3. Fallback semántico con Ollama usando el historial reciente
+                            if not articulo_detectado:
+                                hist_text = ""
+                                if history_data:
+                                    for h in history_data[-3:]:
+                                        role_name = "Cliente" if h.get("role") == "user" else "IA"
+                                        hist_text += f"{role_name}: {h.get('content')}\n"
+                                hist_text += f"Cliente: {body}"
+                                
+                                prompt_fallback = (
+                                    f"Nuestro catálogo tiene estos artículos: {json.dumps(catalog_items)}. "
+                                    f"Aquí está el final de la conversación:\n{hist_text}\n"
+                                    "¿A cuál de los artículos del catálogo se refiere el cliente exactamente? "
+                                    "Responde SOLO con el nombre exacto del artículo tal como aparece en la lista, sin nada más. "
+                                    "Si no está claro o no se refiere a ninguno de los listados, responde 'Ninguno'."
+                                )
+                                res = query_ollama(prompt_fallback, "Extractor de Catálogo", inst_name)
+                                res_clean = res.strip().strip("'\"").strip()
+                                if res_clean in catalog_items:
+                                    articulo_detectado = res_clean
+                                    logger.info(f" [ITEM-EXTRACT] Artículo detectado por Ollama fallback: '{articulo_detectado}'")
+                            # Extraer el precio oficial del artículo
+                            if articulo_detectado:
+                                if isinstance(pr_data, dict) and "data" in pr_data:
+                                    # Buscar en la lista dinámica
+                                    items_list = []
+                                    if isinstance(pr_data["data"], dict):
+                                        for key_val, val_val in pr_data["data"].items():
+                                            if isinstance(val_val, list):
+                                                items_list = val_val
+                                                break
+                                    for b in items_list:
+                                        if isinstance(b, dict) and b.get("name", "").lower() == articulo_detectado.lower():
+                                            precio_v = _extract_price_generic(b, body)
+                                            break
+                                elif isinstance(pr_data, dict):
+                                    b_info = pr_data.get(articulo_detectado, {})
+                                    precio_v = _extract_price_generic(b_info, body)
+                    except Exception as re_err:
+                        logger.error(f"[ITEM-EXTRACT ERROR] {re_err}")
+
+                    # --- PROCESAMIENTO Y GENERACIÓN DE RESPUESTA ---
+                    if articulo_detectado:
+                        precio_str = f"${precio_v:,}" if precio_v else "el oficial de catálogo"
+                        term_item = "artículo"
+                        term_plural = "unidades"
+                        if list_key == "breeds":
+                            term_item = "variedad/raza"
+                            term_plural = "ejemplares"
+                        elif list_key == "products":
+                            term_item = "producto"
+                            term_plural = "unidades"
+                        
+                        if "FOTOS_OFRECIDAS:" not in session_ctx:
+                            prompt_especifico = (
+                                f"{ia_prompt}\n\n"
+                                f"REGLA ESTRICTA DE VENTAS (PASO 1):\n"
+                                f"El cliente ha elegido {term_item} '{articulo_detectado}'. El precio oficial es {precio_str}.\n"
+                                f"1. Confirma el precio de manera amigable.\n"
+                                f"2. Da información atractiva sobre la raza (contextura, peso aproximado, humor, etc.).\n"
+                                f"3. FINALIZA OBLIGATORIAMENTE preguntando exactamente: '¿Te gustaría ver fotos y videos de los cachorritos disponibles?'\n"
+                                f"IMPORTANTE: NO expliques formas de pago ni envíos en este paso."
+                            )
+                            # Marcar fotos ofrecidas
+                            session_ctx_new = session_ctx
+                            if "RAZA:" not in session_ctx: session_ctx_new += f"|RAZA:{articulo_detectado}"
+                            session_ctx_new += "|FOTOS_OFRECIDAS:SI"
+                            session_ctx = session_ctx_new
+                            update_session(phone, inst_name, summary=session_ctx)
+                        elif "PAGO_OFRECIDO:SI" not in session_ctx:
+                            # Detectar si el cliente aceptó (heurística simple)
+                            if any(w in body.lower() for w in ["si", "sí", "claro", "dale", "ok", "obvio", "bueno", "mandame", "quiero", "por favor", "sisi"]):
+                                medios = _fuzzy_find_media(articulo_detectado)
+                                if medios:
+                                    logger.info(f" [VENTAS] Enviando {len(medios)} archivos multimedia para {articulo_detectado}")
+                                    for m_path in medios[:4]: 
+                                        _send_media(jid, inst_name, m_path)
+                                        time.sleep(1) # Pequeña pausa entre envíos
+                            
+                            prompt_especifico = (
+                                f"{ia_prompt}\n\n"
+                                f"REGLA ESTRICTA DE VENTAS (PASO 2):\n"
+                                f"El cliente acaba de responder a tu pregunta sobre enviar fotos de {term_item} '{articulo_detectado}'.\n"
+                                f"Si el cliente ACEPTA o muestra interés:\n"
+                                f"  1. Indícale amigablemente que le acabas de adjuntar arriba las fotos y videos al chat.\n"
+                                f"  2. Aprovecha y explícale nuestras Formas de Pago y cómo trabajamos (Logística/Envíos) para que lo vaya teniendo en cuenta.\n"
+                                f"  3. FINALIZA preguntando: '¿Te interesaría avanzar con la adopción?'\n"
+                                f"Si el cliente RECHAZA:\n"
+                                f"  1. Agradécele amablemente y pregúntale si hay otra raza que le interese del catálogo."
+                            )
+                            # Marcar pago ofrecido
+                            session_ctx_new = session_ctx + "|PAGO_OFRECIDO:SI"
+                            session_ctx = session_ctx_new
+                            update_session(phone, inst_name, summary=session_ctx)
+                            
+                        else:
+                            if any(w in body.lower() for w in ["si", "s", "claro", "dale", "ok", "obvio", "bueno", "mandame", "quiero", "por favor", "sisi", "avanzar"]):
+                                # El usuario aceptó la adopción, avanzar al siguiente nodo
+                                new_state = next_node_map.get(state)
+                                # Guardar la raza y precio en el contexto antes de avanzar
+                                session_ctx_new = session_ctx
+                                if "RAZA:" not in session_ctx:
+                                    session_ctx_new = session_ctx + f"|RAZA:{articulo_detectado}"
+                                if precio_v and "PRECIO:" not in session_ctx_new:
+                                    session_ctx_new += f"|PRECIO:{precio_v}"
+                                session_ctx = session_ctx_new
+                                update_session(phone, inst_name, summary=session_ctx)
+                                pass
+                            else:
+                                prompt_especifico = f"{ia_prompt}\n\nEl cliente tiene dudas sobre avanzar con la adopción. Responde a sus preguntas y se persuasivo pero amable."
+                                res = query_ollama(body, prompt_especifico, inst_name, history=history_data)
+                                _send(jid, inst_name, res)
+                                try: cache_add_message(phone, inst_name, 'assistant', res)
+                                except: pass
+
+                                # Guardar la raza y precio en el contexto
+                                session_ctx_new = session_ctx
+                                if "RAZA:" not in session_ctx:
+                                    session_ctx_new = session_ctx + f"|RAZA:{articulo_detectado}"
+                                if precio_v and "PRECIO:" not in session_ctx_new:
+                                    session_ctx_new += f"|PRECIO:{precio_v}"
+                                session_ctx = session_ctx_new
+                                update_session(phone, inst_name, summary=session_ctx)
+                                processing_count -= 1; return
+                        
+                        if new_state == state:
+                            res = query_ollama(body, prompt_especifico, inst_name, history=history_data)
+                            _send(jid, inst_name, res)
+                            try: cache_add_message(phone, inst_name, 'assistant', res)
+                            except: pass
+                            processing_count -= 1; return
+
+                    else:
+                        # Si no hay artículo detectado, dejamos que el LLM responda naturalmente
+                        if kernel_resp and kernel_resp.get("text"):
+                            _send(jid, inst_name, kernel_resp["text"])
+                            try: cache_add_message(phone, inst_name, 'assistant', kernel_resp["text"])
+                            except: pass
+                        else:
+                            # Fallback extremo si kernel_resp falló
+                            res = query_ollama(body, ia_prompt, inst_name, history=history_data)
+                            _send(jid, inst_name, res)
+                            try: cache_add_message(phone, inst_name, 'assistant', res)
+                            except: pass
+                        
+                        # No avanzamos de estado, esperamos que elija un número
+                        processing_count -= 1; return
 
                 elif ntype == 'calculator':
                     ask_text = ndata.get('ask_text', 'En que zona seria la entrega?')
@@ -2751,36 +3243,100 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                         pm = re.search(r'PRECIO:(\d+)', session_ctx)
                         if pm: precio_art = int(pm.group(1))
                         if costo is None:
-                            _send(jid, inst_name, "No tengo precio exacto para " + body.upper() + ". Consulta con un asesor.")
+                            if "CANCELAR" in body.upper() or "OTRA" in body.upper():
+                                update_session(phone, inst_name, summary=session_ctx.replace("|CALC_WAITING", ""))
+                                _send(jid, inst_name, "Cálculo cancelado. ¿En qué más te puedo ayudar?")
+                                new_state = first_node_id
+                            else:
+                                _send(jid, inst_name, "No logré identificar tu zona exacta. Por favor, indícame tu ciudad o provincia para poder calcular el costo de envío. (O escribe 'cancelar')")
+                                processing_count -= 1; return
+                        # Zona con costo por KM: enviar PDF de traslados + pedir ciudad exacta
+                        elif costo > 0 and costo < 5000:  # Costo por km (no monto fijo)
+                            # Buscar PDF de traslados para la zona
+                            traslado_pdf = None
+                            zona_encontrada_str = body.upper()
+                            for pdf_name in ["Traslados Buenos Aires.pdf", "Traslados Provincia de Santa Fe.pdf", "Traslados Provincia Entre Rios.pdf"]:
+                                tp = _resolve_file(pdf_name)
+                                if tp:
+                                    # Enviar el PDF de la provincia correspondiente
+                                    _send_media(jid, inst_name, tp)
+                                    traslado_pdf = tp
+                                    break
+                            _send(jid, inst_name, f"El envío a tu zona tiene un costo de ${costo} por km recorrido desde origen. Para darte el precio exacto, ¿podés indicarme la ciudad o localidad exacta?")
+                            update_session(phone, inst_name, summary=session_ctx.replace("|CALC_WAITING", f"|CALC_WAITING_CITY:{body}"))
                             processing_count -= 1; return
-                        total = precio_art + costo
-                        costo_str = "Sin cargo" if costo == 0 else "$" + f"{costo:,}"
-                        msg = confirm_tpl.replace("{zona}", body.upper()).replace("{costo}", costo_str).replace("{total}", "$" + f"{total:,}")
-                        update_session(phone, inst_name, summary=session_ctx.replace("|CALC_WAITING", "|CALC_ZONA:" + body + "|TOTAL:" + str(total)))
-                        _send(jid, inst_name, msg)
-                        new_state = next_node_map.get(state)
+                        else:
+                            total = precio_art + costo
+                            costo_str = "Sin cargo" if costo == 0 else "$" + f"{costo:,}"
+                            msg = confirm_tpl.replace("{zona}", body.upper()).replace("{costo}", costo_str).replace("{total}", "$" + f"{total:,}")
+                            update_session(phone, inst_name, summary=session_ctx.replace("|CALC_WAITING", "|CALC_ZONA:" + body + "|TOTAL:" + str(total)))
+                            _send(jid, inst_name, msg)
+                            new_state = next_node_map.get(state)
                     else:
                         new_state = next_node_map.get(state)
 
                 elif ntype == 'ticket':
-                    if is_multimedia or any(x in body.upper() for x in ["COMPROBANTE", "LISTO", "ENVIADO", "PAGO", "TRANSFE"]):
-                        datos = "Comprobante recibido con exito!\n\nPor favor, completame estos datos:"
-                        try:
-                            datos_file = ndata.get('file', 'datos.txt')
-                            dp = _resolve_file(datos_file)
-                            if dp: datos = "Comprobante recibido con exito! OK\n\n" + open(dp, encoding="utf-8").read()
-                        except: pass
-                        _send(jid, inst_name, datos)
-                        cuidados = _resolve_file("cuidados.pdf")
-                        if not cuidados:
-                            for gf in os.listdir(os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "general")):
-                                if "cuidados" in gf.lower() or "envio" in gf.lower():
-                                    cuidados = os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "general", gf); break
-                        if cuidados and os.path.exists(cuidados): _send_media(jid, inst_name, cuidados)
-                        new_state = next_node_map.get(state)
+                    if "WAITING_DATA" not in session_ctx:
+                        if is_multimedia or any(x in body.upper() for x in ["COMPROBANTE", "LISTO", "ENVIADO", "PAGO", "TRANSFE"]):
+                            # --- VERIFICACIÓN OCR DE COMPROBANTE DE PAGO ($50.000 ARS) ---
+                            def validar_monto_comprobante(body_text):
+                                if not body_text: return False, "Imagen o texto sin contenido"
+                                text_upper = str(body_text).upper()
+                                import re
+                                has_50k = bool(re.search(r'50[\.\s,]?000|50000', text_upper))
+                                clean_digits = re.sub(r'[^0-9]', ' ', text_upper)
+                                has_large_num = False
+                                for tok in clean_digits.split():
+                                    if tok.isdigit() and int(tok) >= 50000:
+                                        has_large_num = True
+                                        break
+                                is_valid_amount = has_50k or has_large_num
+                                payment_keywords = ["COMPROBANTE", "TRANSFERENCIA", "EXITOSA", "EXITO", "PAGO", "MONTO", "OPERACION", "DETALLE", "MERCADOPAGO", "MERCADO PAGO", "BANCO", "CVU", "CBU", "ALIAS", "ENVIADO", "SEÑA", "RESERVA", "MULTIMEDIA"]
+                                has_keyword = any(kw in text_upper for kw in payment_keywords)
+                                if is_valid_amount and has_keyword:
+                                    return True, "Comprobante verificado con éxito"
+                                return False, "El comprobante enviado no muestra el monto requerido de la seña ($50.000 ARS) o la imagen no es un comprobante de transferencia válido."
+
+                            is_valid, reason = validar_monto_comprobante(body)
+                            logger.info(f" [VALIDAR-COMPROBANTE] body='{body}' -> is_valid={is_valid}, reason='{reason}'")
+                            if is_valid:
+                                datos = "¡Comprobante de $50.000 verificado con éxito! 📄✅\n\nPor favor, completame estos datos para coordinar el envío:"
+                                try:
+                                    datos_file = ndata.get('file', 'datos.txt')
+                                    dp = _resolve_file(datos_file)
+                                    if dp: datos = "¡Comprobante de $50.000 verificado con éxito! OK\n\n" + open(dp, encoding="utf-8").read()
+                                except: pass
+                                _send(jid, inst_name, datos)
+                                cuidados = _resolve_file("envios_y_cuidados.pdf") or _resolve_file("cuidados.pdf")
+                                if not cuidados:
+                                    try:
+                                        gen_dir = os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "general")
+                                        if os.path.exists(gen_dir):
+                                            for gf in os.listdir(gen_dir):
+                                                if "cuidados" in gf.lower() or "envio" in gf.lower():
+                                                    cuidados = os.path.join(gen_dir, gf); break
+                                    except Exception as list_err:
+                                        logger.error(f"[CUIDADOS PATH ERROR] {list_err}")
+                                if cuidados and os.path.exists(cuidados): _send_media(jid, inst_name, cuidados)
+                                update_session(phone, inst_name, summary=session_ctx + "|WAITING_DATA")
+                                processing_count -= 1; return
+                            else:
+                                _send(jid, inst_name, f"❌ No pudimos verificar la seña en la imagen enviada.\n\n{reason}\n\nPor favor, enviá una captura clara de la transferencia realizada por $50.000 donde se vean el monto, la fecha y los datos de la cuenta.")
+                                processing_count -= 1; return
+                        else:
+                            _send(jid, inst_name, "Aguardando la captura del comprobante de transferencia por $50.000...")
+                            processing_count -= 1; return
                     else:
-                        _send(jid, inst_name, "Aguardando el comprobante de transferencia...")
-                        processing_count -= 1; return
+                        # Estábamos esperando los datos del cliente, los guardamos en el contexto
+                        # y avanzamos al nodo de aprobación/creación de ticket
+                        session_ctx_new = session_ctx.replace("|WAITING_DATA", "") + f"|CLIENT_DATA:{body}"
+                        update_session(phone, inst_name, summary=session_ctx_new)
+                        session_ctx = session_ctx_new
+                        new_state = next_node_map.get(state)
+
+                elif ntype == 'approval':
+                    _send(jid, inst_name, "Tu pedido está registrado y está siendo procesado por un asesor humano. Te avisamos en breve!")
+                    processing_count -= 1; return
 
             # ENTRY ACTIONS: ejecutar nodos encadenados automaticos
             while new_state and new_state != state:
@@ -2816,22 +3372,119 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                         filename = ndata.get('file', '')
                         if filename:
                             fp = _resolve_file(filename)
-                            if fp: _send_media(jid, inst_name, fp)
+                            if fp:
+                                # Si es .txt, enviar como texto plano en lugar de archivo adjunto
+                                if filename.lower().endswith('.txt'):
+                                    try:
+                                        txt_content = open(fp, encoding='utf-8').read().strip()
+                                        if txt_content: _send(jid, inst_name, txt_content)
+                                    except Exception as te:
+                                        logger.error(f"[FILE-TXT] Error leyendo {fp}: {te}")
+                                else:
+                                    _send_media(jid, inst_name, fp)
                     text_after = ndata.get('text_after', '')
                     if text_after: _send(jid, inst_name, text_after)
                     new_state = next_node_map.get(state)
 
                 elif ntype == 'approval':
+                    # --- ENVÍO DE TICKET A3 AL NÚMERO DE NOTIFICACIÓN ---
                     try:
-                        import sqlite3 as _sq3
-                        conn_tk = _sq3.connect(DB_PATH, timeout=30)
-                        c_tk = conn_tk.cursor()
-                        c_tk.execute("INSERT INTO tickets (phone, instance, summary, status) VALUES (?, ?, ?, 'PENDING')", (phone, inst_name, session_ctx[:200]))
-                        conn_tk.commit(); conn_tk.close()
-                        logger.info(f"[TICKET] Creado para {phone}")
-                    except Exception as e_tk: logger.error(f"[TICKET ERROR] {e_tk}")
-                    _send(jid, inst_name, "Tu pedido quedo registrado y esta pendiente de aprobacion. Te avisamos en breve!")
+                        notif_phone = ndata.get('notify_phone', '1136822400')
+                        notif_phone_normalized = normalize_argentina_wa_phone(notif_phone)
+                        # Extraer datos del contexto
+                        nombre_c = cur_name or phone
+                        raza_m = re.search(r'RAZA:([^|]+)', session_ctx)
+                        articulo_m = re.search(r'ARTICULO:([^|]+)', session_ctx)
+                        precio_m = re.search(r'PRECIO:(\d+)', session_ctx)
+                        total_m = re.search(r'TOTAL:(\d+)', session_ctx)
+                        zona_m = re.search(r'CALC_ZONA:([^|]+)', session_ctx)
+                        client_data_m = re.search(r'CLIENT_DATA:([^|]+)', session_ctx)
+                        raza_str = raza_m.group(1).strip() if raza_m else (articulo_m.group(1).strip() if articulo_m else 'No especificada')
+                        precio_str = f"${int(precio_m.group(1)):,}" if precio_m else 'No especificado'
+                        total_str = f"${int(total_m.group(1)):,}" if total_m else precio_str
+                        zona_str = zona_m.group(1).strip() if zona_m else 'No especificada'
+                        client_data_str = client_data_m.group(1).strip() if client_data_m else 'No proporcionados'
+                        
+                        # Calcular el costo de logística (Total a pagar - Precio producto)
+                        precio_val = int(precio_m.group(1)) if precio_m else 0
+                        total_val = int(total_m.group(1)) if total_m else precio_val
+                        logistica_val = total_val - precio_val
+                        logistica_str = f"${logistica_val:,}" if logistica_val > 0 else ("Sin cargo" if logistica_val == 0 else "No especificado")
+
+                        # Cargar el monto de seña dinámicamente desde pricing.json
+                        reservation_fee = 50000  # Valor fallback por defecto
+                        try:
+                            if os.path.exists(pricing_p):
+                                pr_d = json.load(open(pricing_p, "r", encoding="utf-8"))
+                                for fee_key in ["reservation_fee", "sena", "seña", "booking_fee", "deposit"]:
+                                    if isinstance(pr_d, dict):
+                                        if fee_key in pr_d:
+                                            reservation_fee = pr_d[fee_key]
+                                            break
+                                        if "data" in pr_d and isinstance(pr_d["data"], dict) and fee_key in pr_d["data"]:
+                                            reservation_fee = pr_d["data"][fee_key]
+                                            break
+                        except Exception as fee_err:
+                            logger.error(f"[TICKET-FEE ERROR] {fee_err}")
+                        sena_str = f"${reservation_fee:,}" if isinstance(reservation_fee, (int, float)) else str(reservation_fee)
+
+                        # Resumen IA del chat
+                        resumen_ia = ""
+                        try:
+                            hist_resumen = cache_get_history(phone, inst_name, limit=10)
+                            hist_txt = "\n".join([f"{m['role'].upper()}: {m['content'][:100]}" for m in hist_resumen])
+                            resumen_ia = query_ollama(hist_txt, "Resume en 3 lineas la conversacion de venta. Solo los datos clave: producto, precio, zona y estado.", inst_name)
+                        except: resumen_ia = session_ctx[:200]
+
+                        # --- CREACIÓN DE TICKET EN BASE DE DATOS ---
+                        ticket_id = None
+                        try:
+                            import sqlite3 as _sq3
+                            conn_tk = _sq3.connect(DB_PATH, timeout=30)
+                            c_tk = conn_tk.cursor()
+                            c_tk.execute("INSERT INTO tickets (phone, instance, summary, status, company_id, summary_ia, a3) VALUES (?, ?, ?, 'pending_auth', ?, ?, 1)", 
+                                         (phone, inst_name, session_ctx[:500], company_id, resumen_ia))
+                            c_tk.execute("UPDATE sessions SET pending_handoff=1 WHERE phone=? AND instance=?", (phone, inst_name))
+                            conn_tk.commit()
+                            ticket_id = c_tk.lastrowid
+                            conn_tk.close()
+                            logger.info(f"[TICKET] Creado #{ticket_id} para {phone} y marcado pending_handoff=1")
+                        except Exception as e_tk: logger.error(f"[TICKET ERROR] {e_tk}")
+
+                        ticket_num = ticket_id or "N/A"
+
+                        # Generamos los detalles del ticket en el formato exacto de 5 puntos requerido:
+                        ticket_details = (
+                            f"1- Nro de ticket: #{ticket_num}\n"
+                            f"2- Cliente: {nombre_c} (Tel: {phone})\n"
+                            f"   Datos: {client_data_str}\n"
+                            f"   Producto elegido: {raza_str}\n"
+                            f"3- Resumen del chat (por IA):\n{resumen_ia}\n"
+                            f"4- Total pagado: {sena_str}\n"
+                            f"   Total a pagar: {total_str}\n"
+                            f"   Costo de logística: {logistica_str}"
+                        )
+
+                        # 5- link al chat con el cliente por whatsapp
+                        client_phone_clean = normalize_argentina_wa_phone(phone)
+                        import urllib.parse
+                        encoded_text = urllib.parse.quote(ticket_details)
+                        wa_link = f"https://wa.me/{client_phone_clean}?text={encoded_text}"
+
+                        ticket_msg = (
+                            f"{ticket_details}\n"
+                            f"5- Link al chat con el cliente por WhatsApp:\n{wa_link}"
+                        )
+
+                        # Enviar la notificación al número del administrador
+                        _send(f"{notif_phone_normalized}@s.whatsapp.net", inst_name, ticket_msg)
+                        logger.info(f"[TICKET-A3] Ticket #{ticket_num} enviado a {notif_phone_normalized}")
+                    except Exception as et:
+                        logger.error(f"[TICKET-A3 ERROR] {et}")
+                    
+                    _send(jid, inst_name, "✅ Tu pedido quedó registrado y está pendiente de aprobación. ¡Te avisamos en breve!")
                     break
+
 
                 elif ntype == 'external_msg':
                     new_state = next_node_map.get(state)
@@ -2857,7 +3510,23 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
 
 
 def _send(jid, inst, text):
-    logger.info(f" [EVO-SEND] Enviando a {jid} via {inst}: {text[:50]}...")
+    import re
+    media_files = []
+    # Interceptar comandos __MULTIMEDIA__: <filename>
+    pattern = r"__MULTIMEDIA__:\s*<?([^\n<>]+)>?"
+    for match in re.finditer(pattern, text):
+        media_files.append(match.group(1).strip())
+    
+    # Remover los comandos del texto que se enviar al usuario
+    clean_text = re.sub(pattern, "", text).strip()
+    
+    if not clean_text and not media_files:
+        return 200
+        
+    if clean_text:
+        text = clean_text
+        safe_log = str(text[:50]).encode('ascii', 'replace').decode('ascii')
+        logger.info(f" [EVO-SEND] Enviando a {jid} via {inst}: {safe_log}...")
     target_url = EVO_URL # Default 8080 (WhatsApp)
     
     # Registrar SIEMPRE el log en DB local inmediatamente para visibilidad en Dashboard
@@ -2880,9 +3549,9 @@ def _send(jid, inst, text):
         platform = "telegram"
         target_url = "http://127.0.0.1:8082"
     
-    # Si es un número de stress, NO intentamos enviar a la API real para no saturar el socket
-    if jid.startswith("stress_"):
-        logger.info(f" [STRESS-MOCK] Saltando envío real para usuario de prueba {jid}")
+    # Sandbox Mode (Anti-Ban): Si es un número de stress, NO intentamos enviar a la API real
+    if jid.startswith("stress_") or jid.startswith("5491100000") or jid.startswith("1100000"):
+        logger.info(f" [STRESS-MOCK / SANDBOX] Saltando envío real a WhatsApp para usuario de prueba {jid} (Prevención de Ban)")
         return 200
 
     try:
@@ -2890,6 +3559,17 @@ def _send(jid, inst, text):
             r = requests.post(f"{target_url}/message/sendText/{inst}", 
                              headers={"apikey": EVO_API_KEY, "Content-Type": "application/json"}, 
                              json={"number": jid, "text": text}, timeout=15)
+            # Fallback para números de Argentina (Bug Baileys 549 vs 54)
+            if False:
+                jid_alt = "54" + jid[3:]
+                requests.post(f"{target_url}/message/sendText/{inst}", 
+                             headers={"apikey": EVO_API_KEY, "Content-Type": "application/json"}, 
+                             json={"number": jid_alt, "text": text}, timeout=15)
+            elif False:
+                jid_alt = "549" + jid[2:]
+                requests.post(f"{target_url}/message/sendText/{inst}", 
+                             headers={"apikey": EVO_API_KEY, "Content-Type": "application/json"}, 
+                             json={"number": jid_alt, "text": text}, timeout=15)
         else:
             r = requests.post(f"{target_url}/message/sendText/{inst}", 
                              json={"number": jid, "text": text}, timeout=15)
@@ -2897,11 +3577,18 @@ def _send(jid, inst, text):
         if r.status_code not in [200, 201]:
             logger.error(f" [!] Error al enviar a {platform} (HTTP {r.status_code}): {r.text}")
         
-        return r.status_code
     except Exception as e:
         logger.error(f" [!] Error en _send real: {e}")
-        return 500
 
+    # Enviar los archivos multimedia interceptados
+    for mfile in media_files:
+        mpath = _resolve_file(mfile)
+        if mpath:
+            _send_media(jid, inst, mpath)
+        else:
+            logger.warning(f" [EVO-MEDIA] No se encontro el archivo multimedia solicitado: {mfile}")
+            
+    return 200
 @app.route('/static_media/<inst_name>/<filename>')
 def serve_static_media(inst_name, filename):
     return send_from_directory(os.path.join(CONFIG_DIR, inst_name, "media"), filename)
@@ -2961,6 +3648,7 @@ def _send_media(jid, inst, file_path, caption=""):
 @app.route('/webhook/whatsapp', methods=['POST'])
 def webhook():
     try:
+        logger.info(f" [WEBHOOK-RAW-ANY] Request URL: {request.url}, Data: {request.data}")
         data = request.json
         if not data: return "no data", 200
         logger.info(f" [WEBHOOK-RAW] Data: {json.dumps(data)[:200]}...")
@@ -2988,8 +3676,8 @@ def webhook():
         row_conn = c.fetchone()
         comp_id = row_conn[0] if row_conn else None
 
-        c.execute("""INSERT INTO contacts_agenda (name, phone, last_channel, origin, company_id) 
-                   VALUES (?, ?, ?, ?, ?)
+        c.execute("""INSERT INTO contacts_agenda (name, phone, last_channel, origin, group_name, company_id) 
+                   VALUES (?, ?, ?, ?, 'CLIENTES', ?)
                    ON CONFLICT(phone) DO UPDATE SET 
                    last_channel=excluded.last_channel,
                    name=CASE WHEN name='Cliente Nuevo' THEN excluded.name ELSE name END,
@@ -3024,7 +3712,7 @@ def webhook():
         
         # Prioridad: 1 para humanos, 10 para stress
         prio = 1 if not str(phone).startswith("STRESS_") else 10
-        ia_queue.put((prio, {
+        ia_queue.put((prio, next(queue_counter), {
             "jid": jid,
             "body": body,
             "phone": phone,
@@ -3336,6 +4024,7 @@ def handle_exception(e):
 
 if __name__ == '__main__':
     # Singleton process lock check
+    CONFIG_DIR = os.getenv("CONFIG_DIR", r"C:\SaaSIA\ai_core\config")
     lock_path = os.path.join(CONFIG_DIR, "nucleo_ia.pid")
     if os.path.exists(lock_path):
         try:
@@ -3352,21 +4041,7 @@ if __name__ == '__main__':
     
     # Auto-sync de webhooks en bucle periódico (cada 30s)
     def auto_sync():
-        logger.info(" [AUTO-SYNC] Iniciando bucle de sincronización periódica de webhooks (Baileys)...")
-        while True:
-            try:
-                current_api_key = os.getenv("AUTHENTICATION_API_KEY", EVO_API_KEY)
-                res = requests.get(f"{EVO_URL}/instance/fetchInstances", headers={"apikey": current_api_key}, timeout=5)
-                if res.status_code == 200:
-                    for item in res.json():
-                        inst = item.get('instance', {}).get('instanceName')
-                        if item.get('instance', {}).get('status') == 'connected':
-                            requests.put(f"{EVO_URL}/webhook/set/{inst}", 
-                                         json={"url": "http://localhost:5000/webhook"}, 
-                                         headers={"apikey": current_api_key}, timeout=5)
-            except Exception as e:
-                logger.debug(f" [AUTO-SYNC] Error en sincronización: {e}")
-            time.sleep(30)
+        pass
 
     threading.Thread(target=auto_sync, daemon=True).start()
     threading.Thread(target=mkt_loop, daemon=True).start()

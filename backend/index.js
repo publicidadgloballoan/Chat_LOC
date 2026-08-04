@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
-const path = require('path');
+
 const axios = require('axios');
 const { PrismaClient } = require('./prisma/generated-client-v2');
 const bcrypt = require('bcryptjs');
@@ -139,6 +139,28 @@ app.post('/api/auth/login', async (req, res) => {
         res.json({ token, agent: { id: agent.id, name: agent.name, role: agent.role }, company: { id: agent.company.id, name: agent.company.businessName } });
     } catch (error) {
         res.status(500).json({ error: 'Login Error' });
+    }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+        const { email, newPassword } = req.body;
+        if (!email || !newPassword) {
+            return res.status(400).json({ error: 'Proporcione el email y la nueva contraseña.' });
+        }
+        const agent = await prisma.sAAgent.findUnique({ where: { email } });
+        if (!agent) {
+            return res.status(404).json({ error: 'No se encontró un usuario registrado con ese email.' });
+        }
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        await prisma.sAAgent.update({
+            where: { email },
+            data: { passwordHash }
+        });
+        res.json({ message: 'Contraseña actualizada correctamente. Ya puedes ingresar con tu nueva clave.' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ error: 'Error al restablecer la contraseña.' });
     }
 });
 
@@ -324,99 +346,134 @@ app.get('/api/logs', authenticateToken, async (req, res) => {
     }
 });
 
+// Instancias activas — ahora meta_service (puerto 8080) unifica WA + IG + Messenger
 app.get('/api/wa/instances', authenticateToken, async (req, res) => {
     try {
-        const response = await axios.get(`http://127.0.0.1:8080/instance/fetchInstances`, { 
-            headers: { 'apikey': process.env.AUTHENTICATION_API_KEY } 
+        const META_SVC = 'http://127.0.0.1:8080';
+        const apikey = process.env.AUTHENTICATION_API_KEY;
+
+        const response = await axios.get(`${META_SVC}/instance/fetchInstances`, {
+            headers: { apikey },
+            timeout: 5000
         });
-        
-        let details = await Promise.all(response.data.map(async (inst) => {
+
+        const details = await Promise.all(response.data.map(async (inst) => {
             try {
-                const stateRes = await axios.get(`http://127.0.0.1:8080/instance/connectionState/${inst.instance.instanceName}`, {
-                    headers: { 'apikey': process.env.AUTHENTICATION_API_KEY },
+                const stateRes = await axios.get(`${META_SVC}/instance/connectionState/${inst.instance.instanceName}`, {
+                    headers: { apikey },
                     timeout: 5000
                 });
                 return stateRes.data.instance;
-            } catch (err) { 
-                console.error(`[WA-STATE-ERR] ${inst.instance.instanceName}:`, err.message);
-                return { ...inst.instance, state: 'offline' }; 
+            } catch (err) {
+                console.error(`[META-STATE-ERR] ${inst.instance.instanceName}:`, err.message);
+                return { ...inst.instance, state: 'offline' };
             }
         }));
 
-        // Fetch Instagram instances
-        try {
-            const igResponse = await axios.get(`http://127.0.0.1:8081/debug/instances`, { timeout: 3000 });
-            if (igResponse.data && igResponse.data.keys) {
-                const igDetails = igResponse.data.keys.map(k => ({ instanceName: k, state: 'open', phone: 'Instagram' }));
-                details = details.concat(igDetails);
-            }
-        } catch (err) { console.log('[IG-STATE-ERR]', err.message); }
-
         res.json(details);
     } catch (e) {
+        console.error('[META-INSTANCES-ERR]', e.message);
         res.status(500).json({ error: e.message });
     }
 });
+// Conectar canal — Meta API unifica WhatsApp, Messenger e Instagram
 app.post('/channels/connect/:platform', async (req, res) => {
     const { platform } = req.params;
     const { botName, companyId, credentials } = req.body;
     console.log(`[CHANNEL] Conectando ${platform} para ${botName}`);
 
+    // Plataformas soportadas por Meta API
+    const META_PLATFORMS = ['whatsapp', 'instagram', 'messenger'];
+    const META_SVC = 'http://localhost:8080';
+    const apikey = process.env.AUTHENTICATION_API_KEY;
+
+    // Validar credentials Meta obligatorias
+    if (META_PLATFORMS.includes(platform)) {
+        if (!credentials || !credentials.access_token) {
+            return res.status(400).json({
+                error: `Para conectar ${platform} via Meta API se requiere 'credentials.access_token'.`,
+                required: {
+                    whatsapp: { type: 'whatsapp', phone_number_id: 'REQUERIDO', access_token: 'REQUERIDO', business_account_id: 'REQUERIDO' },
+                    messenger: { type: 'messenger', page_id: 'REQUERIDO', page_access_token: 'REQUERIDO', access_token: 'alias de page_access_token' },
+                    instagram: { type: 'instagram', instagram_account_id: 'REQUERIDO', page_id: 'REQUERIDO', page_access_token: 'REQUERIDO', access_token: 'alias de page_access_token' }
+                }[platform]
+            });
+        }
+    }
+
     try {
         const instanceName = botName || `${platform}_${Date.now()}`;
+        const finalCompanyId = companyId ? parseInt(companyId) : 1; // Fallback a 1 si no se envía
+
+        // Guardar canal en DB con credentials Meta
         const channel = await prisma.channel.create({
-            data: { 
-                botName: botName || platform, 
-                companyId: parseInt(companyId), 
-                platform, 
-                instanceName: instanceName,
+            data: {
+                botName: botName || platform,
+                platform,
+                instanceName,
                 status: 'connected',
                 credentials: credentials || {},
-                configA1: { personality: "Experto en " + platform },
-                configA2: { steps: ["Consulta", "Respuesta", "Cierre"] },
-                configA3: { catalog: [] }
+                configA1: { personality: 'Experto en ' + platform },
+                configA2: { steps: ['Consulta', 'Respuesta', 'Cierre'] },
+                configA3: { catalog: [] },
+                company: {
+                    connect: { id: finalCompanyId }
+                }
             }
         });
 
-        // 1. Registrar Webhook / Conectar en el servicio correspondiente
-        if (platform === 'whatsapp') {
+        // ── Meta API (WhatsApp / Messenger / Instagram) ──────────────
+        if (META_PLATFORMS.includes(platform)) {
             try {
-                await axios.put(`http://localhost:8080/webhook/set/${instanceName}`, { url: `http://localhost:5000/webhook` }, {
-                    headers: { 'apikey': process.env.AUTHENTICATION_API_KEY }
+                // Registrar instancia en meta_service con sus credentials
+                await axios.post(`${META_SVC}/instance/create`, {
+                    instanceName,
+                    credentials: { type: platform, ...credentials }
+                }, {
+                    headers: { apikey },
+                    timeout: 10000
                 });
-            } catch (err) { console.error('[WH-SET] Error en WA Local:', err.message); }
-        } else if (platform === 'instagram') {
-            try {
-                await axios.post(`http://127.0.0.1:8081/instance/create`, { 
-                    instanceName: instanceName,
-                    credentials: credentials 
+
+                // Configurar webhook interno hacia nucleo_ia
+                await axios.put(`${META_SVC}/webhook/set/${instanceName}`, {
+                    url: 'http://localhost:5000/webhook'
+                }, {
+                    headers: { apikey },
+                    timeout: 5000
                 });
-            } catch (err) { 
-                console.error('[IG-SET] Error en IG Local:', err.message); 
+
+                console.log(`[META-SVC] ✅ Instancia ${instanceName} (${platform}) registrada en meta_service`);
+            } catch (err) {
+                console.error(`[META-SVC] ❌ Error registrando ${instanceName}:`, err.response?.data || err.message);
                 await prisma.channel.delete({ where: { id: channel.id } });
-                return res.status(400).json({ error: 'Fallo el login de Instagram. Verifica tus credenciales e intenta de nuevo.' });
+                return res.status(400).json({
+                    error: `Error conectando ${platform} en meta_service: ${err.response?.data?.error || err.message}`
+                });
             }
+
+        // ── Telegram (sin cambios) ────────────────────────────────────
         } else if (platform === 'telegram') {
             try {
-                await axios.post(`http://localhost:8082/instance/create`, { 
-                    instanceName: instanceName,
-                    credentials: credentials 
+                await axios.post('http://localhost:8082/instance/create', {
+                    instanceName,
+                    credentials
                 });
             } catch (err) { console.error('[TG-SET] Error en TG Local:', err.message); }
         }
 
-        // 2. Notificar al Nucleo IA para persistir la conexion
+        // Notificar al Nucleo IA
         try {
-            await axios.post(`http://localhost:5000/api/data`, {
+            await axios.post('http://localhost:5000/api/data', {
                 action: 'register_instance',
                 instance: instanceName,
-                companyId: companyId,
-                platform: platform
+                companyId,
+                platform
             });
         } catch (err) { console.error('[NUCLEO-SYNC] Error:', err.message); }
 
         res.json({ success: true, channel });
     } catch (e) {
+        console.error('[CHANNEL-CONNECT-ERR]', e.message);
         res.status(500).json({ error: e.message });
     }
 });
@@ -479,6 +536,20 @@ app.get('/api/wa/qr', async (req, res) => {
         };
         await axios.post(`${EVO_URL}/instance/create`, payload, { headers: { apikey }, timeout: 5000 });
         await new Promise(r => setTimeout(r, 3000));
+
+        // 2.5 Configurar Webhook Automáticamente
+        try {
+            await axios.put(`${EVO_URL}/webhook/set/${instanceName}`, { 
+                webhook: {
+                    enabled: true,
+                    url: `http://localhost:5000/webhook`,
+                    byEvents: false,
+                    base64: false,
+                    events: ["MESSAGES_UPSERT"]
+                }
+            }, { headers: { apikey }, timeout: 5000 });
+            console.log(`[WA] Webhook configurado automáticamente para: ${instanceName}`);
+        } catch (e) { console.log(`[WA] Error al configurar webhook: ${e.message}`); }
 
         // 3. Intentar obtener el QR con reintentos
         let qrData = null;
@@ -960,7 +1031,7 @@ app.put('/api/channels/:id', authenticateToken, async (req, res) => {
         
         // Sincronizar con los archivos JSON en ai_core/config/instanceName/
         if (updated.instanceName) {
-            const path = require('path');
+            
             const configDir = path.join(__dirname, '..', 'ai_core', 'config', updated.instanceName);
             if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
             
@@ -1402,4 +1473,20 @@ app.listen(PORT, '0.0.0.0', () => {
     setInterval(syncLicenseWithNucleo, 300000);
 });
 
+
+
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+
+app.get('/api/models-stats', authenticateToken, (req, res) => {
+  const dbPath = path.join(__dirname, '..', 'ai_core', 'config', 'brain_sessions.db');
+  const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) return res.status(500).json({error: err.message});
+    db.all('SELECT * FROM ai_models_stats ORDER BY success_count DESC', [], (err, rows) => {
+      db.close();
+      if (err) return res.status(500).json({error: err.message});
+      res.json(rows);
+    });
+  });
+});
 

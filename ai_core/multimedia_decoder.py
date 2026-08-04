@@ -27,10 +27,23 @@ def procesar_multimedia(evo_url, evo_key, instance_name, msg):
         else:
             inner_msg = msg 
 
-        # --- OPTIMIZACIÓN NICO VENTAS: Si es imagen y solo necesitamos saber que existe, retornamos rápido ---
-        # Esto evita cuelgues si Tesseract o FFmpeg fallan
+        # --- PROC IMÁGENES CON OCR PARA VERIFICACIÓN DE COMPROBANTES ---
         if inner_msg.get('imageMessage'):
-            logger.info(" [DEC-IMG] Imagen detectada. Retornando flag rápido.")
+            logger.info(" [DEC-IMG] Imagen detectada. Descargando bytes para OCR de comprobante...")
+            try:
+                url = f"{evo_url}/message/base64/{instance_name}"
+                headers = {"apikey": evo_key, "Content-Type": "application/json"}
+                req_data = {"message": inner_msg}
+                res = requests.post(url, headers=headers, json=req_data, timeout=10)
+                if res.status_code == 200:
+                    b64_data = res.json().get('base64')
+                    if b64_data:
+                        file_bytes = base64.b64decode(b64_data)
+                        ocr_txt = extraer_ocr(file_bytes)
+                        logger.info(f" [DEC-IMG-OCR] Texto extraído ({len(ocr_txt)} chars): {ocr_txt[:80]}")
+                        return "[IMAGEN COMPROBANTE OCR]: " + ocr_txt
+            except Exception as img_err:
+                logger.error(f" [DEC-IMG-ERR] {img_err}")
             return "[MULTIMEDIA_IMAGE]"
 
         url = f"{evo_url}/message/base64/{instance_name}"
@@ -83,6 +96,7 @@ def transcribir_audio(file_bytes):
         ffmpeg_paths = [
             r"c:\RouthLocal\punto_a\ffmpeg.exe",
             r"c:\ffmpeg\bin\ffmpeg.exe",
+            r"C:\Users\Administrador\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe",
             "ffmpeg"  # En PATH del sistema
         ]
         
@@ -146,6 +160,63 @@ def extraer_ocr(file_bytes):
         return texto.strip() if texto.strip() else "(Imagen sin texto reconocible)"
     except Exception as e:
         return f"(El motor de vision OCR requiere instalacion de software Tesseract)"
+
+def extraer_numeros_ocr(file_bytes):
+    """
+    Extrae y normaliza números telefónicos de una imagen (captura de pantalla)
+    usando Tesseract OCR con preprocesamiento para modo claro/oscuro.
+    """
+    try:
+        from PIL import ImageEnhance, ImageOps
+        import io
+        import re
+
+        if os.path.exists(r'C:\Program Files\Tesseract-OCR\tesseract.exe'):
+            pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+        img = Image.open(io.BytesIO(file_bytes))
+        w, h = img.size
+        img_large = img.resize((w * 3, h * 3), Image.Resampling.LANCZOS)
+        gray = ImageOps.grayscale(img_large)
+        inverted = ImageOps.invert(gray)
+        enhanced = ImageEnhance.Contrast(inverted).enhance(2.5)
+
+        # Probar modos PSM 4 y 3 para asegurar máxima captura
+        extracted_text = ""
+        for psm in [4, 3]:
+            try:
+                t = pytesseract.image_to_string(enhanced, config=f'--psm {psm}')
+                if t:
+                    extracted_text += "\n" + t
+            except Exception:
+                pass
+
+        if not extracted_text.strip():
+            # Fallback en imagen original
+            extracted_text = pytesseract.image_to_string(img)
+
+        raw_lines = [line.strip() for line in extracted_text.splitlines() if line.strip()]
+        cleaned_numbers = []
+        seen_digits = set()
+
+        for line in raw_lines:
+            match = re.search(r'\+?\s*\d[\d\s\-\(\)\.]{6,}\d', line)
+            if match:
+                raw_phone = match.group(0)
+                digits = re.sub(r'\D', '', raw_phone)
+                if len(digits) >= 8 and digits not in seen_digits:
+                    seen_digits.add(digits)
+                    cleaned_numbers.append({
+                        'raw': raw_phone,
+                        'digits': digits,
+                        'formatted': '+' + digits
+                    })
+
+        return cleaned_numbers
+    except Exception as e:
+        logger.error(f"[OCR-NUMBERS-ERR] {e}")
+        return []
+
 
 def extraer_pdf(file_bytes):
     try:

@@ -1,4 +1,21 @@
+# ============================================================
+# ⚠️  DEPRECATED — NO USAR
+# ============================================================
+# Este servicio fue reemplazado por:
+#   ai_core/meta_service/server.js
+#
+# Razón: instagrapi usa scraping/reverse engineering de la API privada
+# de Instagram. Meta detecta y banea cuentas. Es ToS violation.
+#
+# La nueva implementación usa Instagram Messaging API (oficial)
+# via Meta Cloud API, integrada en meta_service.
+#
+# Fecha de deprecación: Julio 2026
+# Reemplazado por: Meta Instagram Graph API via meta_service
+# ============================================================
+
 import time
+
 import threading
 import os
 import json

@@ -14,9 +14,9 @@ services:
     volumes:
       - saas_db_data:/var/lib/postgresql/data
 
-  # El backend orquestador (Node.js) se encargará del Onboarding y Gestión
+  # Backend orquestador (Node.js)
   backend-orchestrator:
-    build: 
+    build:
       context: ./backend
     container_name: saas_backend
     depends_on:
@@ -30,7 +30,7 @@ services:
       - ./backend:/app
       - /app/node_modules
 
-  # El nucleo de IA (Python) se encargará del RAG y Ollama
+  # Nucleo de IA (Python)
   ai-core:
     build:
       context: ./ai_core
@@ -40,6 +40,30 @@ services:
       DB_URL: postgresql://admin_antigravity:cebdef04370d542a7e7d70827ce798cb@postgres:5432/saas_antigravity
     ports:
       - "5000:5000"
+
+  # Meta Service — reemplaza Baileys (WA) + instagrapi (IG)
+  # Soporta: WhatsApp Business API + Messenger + Instagram Messaging
+  meta-service:
+    build:
+      context: ./ai_core/meta_service
+    container_name: saas_meta_service
+    restart: always
+    depends_on:
+      - ai-core
+    environment:
+      PORT: 8080
+      AUTHENTICATION_API_KEY: PICE-SAAS-DEFAULT-KEY-2026
+      # URL del relay publico (Cloudflare Tunnel sobre smart-box.com.ar)
+      META_RELAY_WS: wss://relay.smart-box.com.ar/ws
+      RELAY_API_KEY: PICE-SAAS-DEFAULT-KEY-2026
+      # Webhook interno al nucleo IA (dentro de la red Docker)
+      NUCLEO_WEBHOOK_URL: http://ai-core:5000/webhook
+      META_GRAPH_VERSION: v20.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./ai_core/meta_service:/app
+      - /app/node_modules
 
 volumes:
   saas_db_data:

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -72,6 +72,7 @@ export default function DashboardPage() {
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showChannelMenu, setShowChannelMenu] = useState(false);
   const [activeTab, setActiveTab] = useState('Dashboard');
+  const [modelsStats, setModelsStats] = useState<any[]>([]);
   const [qrData, setQrData] = useState<any>(null);
   const [debugPhones, setDebugPhones] = useState<string[]>([]);
   const [debugEnabled, setDebugEnabled] = useState(false);
@@ -95,12 +96,12 @@ export default function DashboardPage() {
     { trigger: 'rag_list', action: 'Listado de archivos RAG', context: 'Devuelve el listado de biblioteca de medios RAG' }
   ]);
   const [mediaManifest, setMediaManifest] = useState<any[]>([
-    { name: 'Como es el mercado fintech-colabporatium.pdf', type: 'Documentos', context: 'Explicación del mercado financiero en argentina. Usar para explicar la oportunidad de mercado a representantes.' },
-    { name: 'Colaboratium Final Abril.pdf', type: 'Documentos', context: 'Presentación del producto y avales. Usar para conseguir interés de CONSULTORES FINANCIEROS.' },
-    { name: 'Logo 03.pdf', type: 'Fotos', context: 'Logo oficial fondo blanco.' },
-    { name: 'Manual_KYC_Colaboratium.pdf', type: 'Documentos', context: 'Manual de procedimientos. Usar cuando pregunten por los controles de la app.' },
-    { name: 'Presentacion_Colaboratium_Fondo_Blanco.pdf', type: 'Documentos', context: 'Presentación resumen para enviar a quienes quieran ser CONSULTORES FINANCIEROS.' },
-    { name: 'Video Mision y Objetivos', type: 'Videos', url: 'https://www.youtube.com/watch?v=Zbs_suP9ddc', context: 'Video de presentación virtual. Enviar solo a quien demuestre verdadero interés en ser partner.' }
+    { name: 'Presentacion_Canes_Oficial.pdf', type: 'Documentos', context: 'Presentación del producto Canes y servicios.' },
+    { name: 'Canes_Resumen.pdf', type: 'Documentos', context: 'Presentación resumen para clientes.' },
+    { name: 'Logo_Canes.pdf', type: 'Fotos', context: 'Logo oficial fondo blanco.' },
+    { name: 'Manual_Canes.pdf', type: 'Documentos', context: 'Manual de procedimientos Canes.' },
+    { name: 'Presentacion_Canes_Fondo_Blanco.pdf', type: 'Documentos', context: 'Presentación resumen para enviar a clientes.' },
+    { name: 'Video Canes', type: 'Videos', url: 'https://www.youtube.com/watch?v=Zbs_suP9ddc', context: 'Video de presentación de la empresa Canes.' }
   ]);
   const [selectedFolder, setSelectedFolder] = useState('Todos');
   const [selectedMedia, setSelectedMedia] = useState<any>(null);
@@ -189,7 +190,7 @@ export default function DashboardPage() {
       const resInst = await axios.get(`http://${apiHost}:4000/api/wa/instances`, { headers: { Authorization: `Bearer ${token}` } });
       if (resInst.data) setAllInstances(resInst.data);
     } catch (e: any) {
-      console.error("FetchLogs Error:", e.message || e);
+      // Silently ignore to prevent Next.js dev overlay crashes during instance restarts
     }
   };
 
@@ -207,6 +208,32 @@ export default function DashboardPage() {
       console.error('Error fetching QR:', err.message || err);
     }
   };
+
+  const handleConnectMetaAPI = async () => {
+    if (!connectData.botName || !connectData.phone_number_id || !connectData.access_token) {
+      alert("Por favor complete todos los campos (Nombre, Phone ID y Token)");
+      return;
+    }
+    try {
+      const apiHost = window.location.hostname;
+      await axios.post(`http://${apiHost}:4000/channels/connect/${showConnectModal}`, {
+        botName: connectData.botName,
+        companyId: selectedCompany?.id || 1,
+        credentials: {
+          type: showConnectModal,
+          phone_number_id: connectData.phone_number_id,
+          access_token: connectData.access_token
+        }
+      });
+      alert('Canal Meta API conectado correctamente');
+      setShowConnectModal(null);
+      const token = localStorage.getItem('PICE SaaS_token');
+      if (token) fetchInitialData(token);
+    } catch (e: any) {
+      alert('Error: ' + (e.response?.data?.error || e.message));
+    }
+  };
+
 
   const handleDeleteInstance = async (instName: string) => {
     if(!confirm(`¿Estás seguro de eliminar la instancia ${instName}? Esto la desconectará por completo.`)) return;
@@ -261,6 +288,15 @@ export default function DashboardPage() {
     }
   };
 
+  
+  const fetchModelsStats = async () => {
+    try {
+      const token = localStorage.getItem('PICE SaaS_token');
+      const res = await axios.get(`http://${window.location.hostname}:4000/api/models-stats`, { headers: { Authorization: `Bearer ${token}` } });
+      setModelsStats(res.data);
+    } catch(e) {}
+  };
+
   const fetchData = async (overrideCompanyId?: number) => {
     try {
       const token = localStorage.getItem('PICE SaaS_token');
@@ -288,7 +324,12 @@ export default function DashboardPage() {
         if (res.data.systemStatus) setSystemStatus(res.data.systemStatus);
       }
     } catch (e: any) { 
-      if (e.response?.status !== 500) console.error('Fetch error:', e.message); 
+      if (e.response?.status === 403 || e.response?.status === 401) {
+        localStorage.clear();
+        window.location.href = '/login';
+      } else if (e.response?.status !== 500) {
+        console.error('Fetch error:', e.message); 
+      }
     }
   };
 
@@ -310,7 +351,12 @@ export default function DashboardPage() {
         if (res.data.systemStatus) setSystemStatus(res.data.systemStatus);
       }
     } catch (e: any) { 
-      if (e.response?.status !== 500) console.error('Fetch conversations error:', e.message); 
+      if (e.response?.status === 403 || e.response?.status === 401) {
+        localStorage.clear();
+        window.location.href = '/login';
+      } else if (e.response?.status !== 500) {
+        console.error('Fetch conversations error:', e.message); 
+      }
     }
   };
 
@@ -549,7 +595,7 @@ export default function DashboardPage() {
       interval = setInterval(fetchLogs, 5000);
     }
     // Tab specific data fetching
-    const dataTabs = ['Dashboard', 'CRM Agenda', 'MKT Emisivo', 'Comandos OS', 'Biblioteca', 'Botones A1', 'Entrenamiento', 'Tickets A3', 'Atención Humana', 'Flujos IA'];
+    const dataTabs = ['Dashboard', 'CRM Agenda', 'MKT Emisivo', 'Comandos OS', 'Biblioteca', 'Botones A1', 'Entrenamiento', 'Tickets A3', 'Atención Humana', 'Flujos IA', 'Modelos de IA'];
     
     if (dataTabs.includes(activeTab)) {
       fetchData();
@@ -560,6 +606,9 @@ export default function DashboardPage() {
       }
       if (activeTab === 'Flujos IA') {
         fetchFlows();
+      }
+      if (activeTab === 'Modelos de IA') {
+        fetchModelsStats();
       }
       if (activeTab === 'Atención Humana') {
         interval = setInterval(fetchConversationsOnly, 8000);
@@ -577,7 +626,7 @@ export default function DashboardPage() {
       const res = await axios.get(`http://${apiHost}:4000/api/companies`, config);
       setCompanies((res.data || []).filter(Boolean));
       if (res.data && res.data.length > 0) {
-        const colab = res.data.find((c: any) => c && (c.businessName === 'Colaboratium' || c.name === 'Colaboratium'));
+        const colab = res.data.find((c: any) => c && (c.businessName === 'Canes' || c.name === 'Canes'));
         const initial = colab || res.data[0];
         setSelectedCompany((prev: any) => prev || initial);
         const companyChannels = (initial?.channels || []).filter(Boolean);
@@ -868,6 +917,40 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    
+    if (activeTab === 'Modelos de IA') {
+      return (
+        <div className="p-10 space-y-10 animate-in fade-in duration-500 overflow-y-auto h-[calc(100vh-6rem)] custom-scrollbar">
+          <div className="flex justify-between items-center">
+            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Modelos de IA</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {modelsStats.map((model, i) => (
+              <div key={model.model_name} className="glass p-6 rounded-3xl border border-white/10 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400"><Brain size={24}/></div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{i + 1}. {model.model_name}</h3>
+                    <p className="text-xs text-slate-400 uppercase tracking-widest">Tokens: {model.tokens_used}</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1 bg-white/5 rounded-2xl p-4">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Éxitos</p>
+                    <p className="text-2xl font-black text-emerald-400">{model.success_count}</p>
+                  </div>
+                  <div className="flex-1 bg-white/5 rounded-2xl p-4">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fallos</p>
+                    <p className="text-2xl font-black text-red-400">{model.fail_count}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       );
@@ -1683,11 +1766,27 @@ export default function DashboardPage() {
                                 try {
                                    const token = localStorage.getItem('PICE SaaS_token');
                                    const apiHost = window.location.hostname;
+                                   const filteredPhones = conversations.filter(c => {
+                                      const matchesSearch = !chatSearch || 
+                                        (c.nombre || '').toLowerCase().includes(chatSearch.toLowerCase()) || 
+                                        (c.numero || '').toLowerCase().includes(chatSearch.toLowerCase());
+                                      const matchesChannel = channelFilter === 'ALL' || (channelFilter === 'ATENCIÓN' && c.pending_handoff) || c.channel === channelFilter;
+                                      let matchesTime = true;
+                                      if (timeFilter !== 'ALL' && c.last_msg_date) {
+                                         const msgTime = new Date(c.last_msg_date).getTime();
+                                         const now = new Date().getTime();
+                                         const diffHours = (now - msgTime) / (1000 * 60 * 60);
+                                         if (timeFilter === '24H') matchesTime = diffHours <= 24;
+                                         else if (timeFilter === '48H') matchesTime = diffHours <= 48;
+                                         else if (timeFilter === 'WEEK') matchesTime = diffHours <= 168;
+                                         else if (timeFilter === '15D') matchesTime = diffHours <= 360;
+                                      }
+                                      return matchesSearch && matchesChannel && matchesTime;
+                                   }).map(c => c.numero);
+
                                    await axios.post(`http://${apiHost}:4000/api/data`, { 
                                       action: 'delete_all_chats',
-                                      companyId: selectedCompany?.id,
-                                      channelFilter,
-                                      timeFilter
+                                      phones: filteredPhones
                                    }, { headers: { Authorization: `Bearer ${token}` } });
                                    fetchData();
                                 } catch(e) { alert("Error al borrar"); }
@@ -2613,32 +2712,71 @@ export default function DashboardPage() {
                             )}
                         </div>
 
-                        <div className="p-8 bg-white rounded-[2rem] shadow-2xl relative group">
-                          {qrData?.status === 'connected' ? (
-                             <div className="w-48 h-48 flex flex-col items-center justify-center text-center">
-                                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-xl shadow-green-500/50 mb-4">
-                                   <Radio size={32} className="text-white animate-pulse" />
-                                </div>
-                                <span className="text-[10px] font-black text-slate-900 uppercase">VINCULADO</span>
-                             </div>
-                          ) : qrData?.base64 ? (
-                            <img src={qrData.base64} alt="QR" className="w-48 h-48" />
-                          ) : (
-                            <div className="w-48 h-48 flex items-center justify-center text-slate-400 font-bold text-[10px] animate-pulse italic">GENERANDO...</div>
-                          )}
+                        <div className="w-full flex gap-2 p-1 bg-white/5 rounded-xl">
+                          <button 
+                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${connectData.waMethod !== 'api' ? 'bg-sky-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            onClick={() => setConnectData({...connectData, waMethod: 'qr'})}
+                          >QR (Baileys)</button>
+                          <button 
+                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${connectData.waMethod === 'api' ? 'bg-sky-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            onClick={() => setConnectData({...connectData, waMethod: 'api'})}
+                          >Meta Cloud API</button>
                         </div>
 
-                        <div className="w-full space-y-4">
-                           <button 
-                             onClick={() => fetchWhatsAppQR(connectData.botName)}
-                             className="w-full py-4 bg-sky-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-sky-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
-                           >
-                             <Radio size={16} /> {qrData?.status === 'connected' || qrData?.status === 'open' ? 'RE-VINCULAR LÍNEA' : 'OBTENER NUEVO QR'}
-                           </button>
-                           <p className="text-center text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">
-                              Escanee desde WhatsApp {'>'} Dispositivos vinculados
-                           </p>
-                        </div>
+                        {connectData.waMethod === 'api' ? (
+                          <div className="w-full space-y-4 animate-in fade-in zoom-in duration-300">
+                            <InputGroup 
+                              label="PHONE NUMBER ID" 
+                              placeholder="Ej: 1130034106869719" 
+                              value={connectData.phone_number_id || ''}
+                              onChange={(v) => setConnectData({...connectData, phone_number_id: v})} 
+                            />
+                            <InputGroup 
+                              label="ACCESS TOKEN (PERMANENTE)" 
+                              placeholder="Ej: EAAYzytdd..." 
+                              value={connectData.access_token || ''}
+                              onChange={(v) => setConnectData({...connectData, access_token: v})} 
+                            />
+                            <button 
+                              onClick={handleConnectMetaAPI}
+                              className="w-full py-4 mt-4 bg-sky-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-sky-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Radio size={16} /> CONECTAR VÍA CLOUD API
+                            </button>
+                            <p className="text-center text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">
+                               Requiere número registrado en portal Meta Developers
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="p-8 bg-white rounded-[2rem] shadow-2xl relative group animate-in fade-in zoom-in duration-300">
+                              {qrData?.status === 'connected' ? (
+                                 <div className="w-48 h-48 flex flex-col items-center justify-center text-center">
+                                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-xl shadow-green-500/50 mb-4">
+                                       <Radio size={32} className="text-white animate-pulse" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-slate-900 uppercase">VINCULADO</span>
+                                 </div>
+                              ) : qrData?.base64 ? (
+                                <img src={qrData.base64} alt="QR" className="w-48 h-48" />
+                              ) : (
+                                <div className="w-48 h-48 flex items-center justify-center text-slate-400 font-bold text-[10px] animate-pulse italic">GENERANDO...</div>
+                              )}
+                            </div>
+
+                            <div className="w-full space-y-4">
+                               <button 
+                                 onClick={() => fetchWhatsAppQR(connectData.botName)}
+                                 className="w-full py-4 bg-sky-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-sky-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
+                               >
+                                 <Radio size={16} /> {qrData?.status === 'connected' || qrData?.status === 'open' ? 'RE-VINCULAR LÍNEA' : 'OBTENER NUEVO QR'}
+                               </button>
+                               <p className="text-center text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">
+                                  Escanee desde WhatsApp {'>'} Dispositivos vinculados
+                               </p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ) : showConnectModal === 'mail' ? (
                       <>
@@ -3028,6 +3166,7 @@ export default function DashboardPage() {
           <NavItem icon={<Terminal size={18} />} label="Comandos OS" active={activeTab === 'Comandos OS'} onClick={() => setActiveTab('Comandos OS')} />
           <NavItem icon={<Box size={18} />} label="Biblioteca" active={activeTab === 'Biblioteca'} onClick={() => setActiveTab('Biblioteca')} />
           <NavItem icon={<Search size={18} />} label="Debugger" active={activeTab === 'Debugger'} onClick={() => setActiveTab('Debugger')} />
+          <NavItem icon={<Brain size={18} />} label="Modelos de IA" active={activeTab === 'Modelos de IA'} onClick={() => setActiveTab('Modelos de IA')} />
           <NavItem icon={<Settings size={18} />} label="Configuración" active={activeTab === 'Configuración'} onClick={() => setActiveTab('Configuración')} />
         </nav>
 

@@ -174,7 +174,35 @@ export default function TicketsAdmin({ selectedChannel, selectedCompany }: Ticke
             <tr>
               <th className="px-8 py-6">Ticket / Origen</th>
               <th className="px-8 py-6">Estado</th>
-              <th className="px-8 py-6">Asignado a</th>
+              <th className="px-8 py-6 flex items-center gap-2">
+                Asignado a
+                <select 
+                  onChange={async (e) => {
+                    const assignee = e.target.value;
+                    if (!assignee) return;
+                    if (!confirm(`¿Asignar ${filteredTickets.length} tickets filtrados a ${assignee}?`)) {
+                      e.target.value = "";
+                      return;
+                    }
+                    const apiHost = window.location.hostname;
+                    const token = localStorage.getItem('PICE SaaS_token');
+                    for (const t of filteredTickets) {
+                      await axios.post(`http://${apiHost}:4000/api/data`, {
+                        action: 'update_ticket',
+                        ...t,
+                        assigned_to: assignee,
+                        companyId: selectedCompany?.id
+                      }, { headers: { Authorization: `Bearer ${token}` } });
+                    }
+                    e.target.value = "";
+                    fetchTickets();
+                  }}
+                  className="bg-white/10 text-[8px] rounded-lg px-2 py-1 outline-none ml-2 cursor-pointer"
+                >
+                  <option value="">+ Asignar Todos</option>
+                  {(team || []).map(m => <option key={m.phone} value={m.name}>{m.name.toUpperCase()}</option>)}
+                </select>
+              </th>
               <th className="px-8 py-6">Prioridad</th>
               <th className="px-8 py-6">Resumen</th>
               <th className="px-8 py-6 text-right">Acciones</th>

@@ -120,9 +120,9 @@ app.post('/message/sendText/:instanceName', async (req, res) => {
 app.post('/message/sendMedia/:instanceName', async (req, res) => {
   try {
     const { instanceName } = req.params;
-    const { number, mediatype, media, caption, fileName } = req.body;
+    const { number, mediatype, media, caption, fileName, mimetype } = req.body;
     const formattedNumber = number.includes('@') ? number : `${number}@s.whatsapp.net`;
-    await baileys.sendMedia(instanceName, formattedNumber, mediatype, media, caption, fileName);
+    await baileys.sendMedia(instanceName, formattedNumber, mediatype, media, caption, fileName, mimetype);
     return res.status(200).json({ status: 'SUCCESS' });
   } catch (error) {
     return res.status(500).json({ error: error.message });

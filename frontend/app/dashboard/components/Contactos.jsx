@@ -1,9 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Search, Plus, Mail, Phone, MessageSquare, Database, Trash2, Edit, Save, Globe, X, ChevronRight, CheckCircle2, Activity, Tag, Filter, Upload, Link, MoreHorizontal } from 'lucide-react';
+import { Users, Search, Plus, Mail, Phone, MessageSquare, Database, Trash2, Edit, Save, Globe, X, ChevronRight, CheckCircle2, Activity, Tag, Filter, Upload, Link, MoreHorizontal, Download } from 'lucide-react';
 import axios from 'axios';
 
 export default function Contactos({ agenda = [], mediaManifest = [], apiHost, token, refresh, selectedCompany }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('TODOS');
   const [showAdd, setShowAdd] = useState(false);
@@ -27,6 +33,15 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
   const [rubros, setRubros] = useState(['TODOS', 'CLIENTES', 'VENDEDORES', 'PROVEEDORES']);
   const [showManageRubros, setShowManageRubros] = useState(false);
   const [newRubroName, setNewRubroName] = useState('');
+  
+  // OCR Import State
+  const [showOcrImport, setShowOcrImport] = useState(false);
+  const [ocrImagePreview, setOcrImagePreview] = useState('');
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrNumbers, setOcrNumbers] = useState([]);
+  const [ocrReference, setOcrReference] = useState(`Captura Imagen ${new Date().toLocaleDateString()}`);
+  const [ocrGroup, setOcrGroup] = useState('CLIENTES');
+  const ocrFileInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const fetchRubros = async () => {
@@ -224,6 +239,112 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
     finally { setLoading(false); }
   };
 
+  const handleOcrImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const b64 = reader.result;
+      setOcrImagePreview(b64);
+      try {
+        setOcrLoading(true);
+        const res = await axios.post(`http://${apiHost}:4000/api/data`, {
+          action: 'ocr_extract_contacts',
+          image: b64
+        }, { headers: { Authorization: `Bearer ${token}` } });
+
+        if (res.data.success && res.data.numbers) {
+          const items = res.data.numbers.map((n, idx) => ({
+            id: idx,
+            raw: n.raw,
+            digits: n.digits,
+            formatted: n.formatted,
+            selected: true,
+            customName: `Pendiente (+${n.digits})`
+          }));
+          setOcrNumbers(items);
+        } else {
+          alert(res.data.error || "No se detectaron números telefónicos en la imagen");
+        }
+      } catch (err) {
+        console.error("Error procesando OCR:", err);
+        alert("Error al procesar la imagen con OCR");
+      } finally {
+        setOcrLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveOcrContacts = async () => {
+    const selected = ocrNumbers.filter(n => n.selected);
+    if (selected.length === 0) return alert("Selecciona al menos un número para agendar");
+    try {
+      setOcrLoading(true);
+      const contactsToSave = selected.map(n => ({
+        phone: n.digits,
+        name: n.customName || `Pendiente (+${n.digits})`,
+        group: ocrGroup,
+        origin: 'OCR_IMAGEN',
+        metadata: { reference: ocrReference, raw_ocr: n.raw }
+      }));
+
+      const res = await axios.post(`http://${apiHost}:4000/api/data`, {
+        action: 'save_ocr_contacts',
+        companyId: selectedCompany?.id,
+        contacts: contactsToSave
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      if (res.data.success) {
+        alert(`¡Exito! Se agendaron ${res.data.count} contactos desde la imagen.`);
+        setShowOcrImport(false);
+        setOcrNumbers([]);
+        setOcrImagePreview('');
+        if (refresh) refresh();
+      } else {
+        alert(res.data.error || "Error al guardar contactos");
+      }
+    } catch (e) {
+      alert("Error al agendar contactos reconocidos");
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    const listToExport = filtered && filtered.length > 0 ? filtered : agenda;
+    if (!listToExport || listToExport.length === 0) return alert("No hay contactos en la agenda para exportar");
+
+    const headers = ["Nombre", "Telefono", "Email", "DNI", "Direccion", "Grupo", "Origen", "Instagram", "Facebook", "LinkedIn", "CBU", "Alias", "Banco", "Sucursal"];
+    
+    const rows = listToExport.map(c => [
+      `"${(c.name || '').replace(/"/g, '""')}"`,
+      `"${(c.phone || '').replace(/"/g, '""')}"`,
+      `"${(c.email || '').replace(/"/g, '""')}"`,
+      `"${(c.dni || '').replace(/"/g, '""')}"`,
+      `"${(c.address || '').replace(/"/g, '""')}"`,
+      `"${(c.group || c.group_name || '').replace(/"/g, '""')}"`,
+      `"${(c.origin || '').replace(/"/g, '""')}"`,
+      `"${(c.instagram || '').replace(/"/g, '""')}"`,
+      `"${(c.facebook || '').replace(/"/g, '""')}"`,
+      `"${(c.linkedin || '').replace(/"/g, '""')}"`,
+      `"${(c.cbu || '').replace(/"/g, '""')}"`,
+      `"${(c.alias || '').replace(/"/g, '""')}"`,
+      `"${(c.bank || '').replace(/"/g, '""')}"`,
+      `"${(c.branch || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `agenda_contactos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -251,6 +372,19 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
         </div>
         
         <div className="flex gap-3">
+          <button 
+            onClick={handleExportCSV}
+            className="px-6 py-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500/20 transition-all flex items-center gap-3 shadow-lg shadow-amber-500/10"
+            title="Exportar agenda actual a archivo CSV/Excel"
+          >
+            <Download size={16} className="text-amber-400" /> EXPORTAR CSV
+          </button>
+          <button 
+            onClick={() => setShowOcrImport(true)}
+            className="px-6 py-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-3 shadow-lg shadow-emerald-500/10"
+          >
+            <Upload size={16} className="text-emerald-400" /> ESCANEAR CAPTURA (OCR)
+          </button>
           <button 
             onClick={() => setShowImport(true)}
             className="px-6 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-3"
@@ -594,6 +728,182 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
           </div>
         )}
       </AnimatePresence>
-    </div>
+      {/* Modal Escanear Captura OCR (Renderizado mediante Portal en document.body para desacoplar de transform/scrolls de padres) */}
+      {showOcrImport && mounted && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0b1329] glass p-4 rounded-2xl border border-emerald-500/40 w-full max-w-2xl h-[420px] max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-emerald-500/20 space-y-2"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between shrink-0 pb-2 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400">
+                    <Upload size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">Reconocimiento OCR por Imagen</h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Escanea números de teléfono desde capturas de pantalla o imágenes</p>
+                  </div>
+                </div>
+                <button onClick={() => { setShowOcrImport(false); setOcrNumbers([]); setOcrImagePreview(''); }} className="text-slate-400 hover:text-white transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Body */}
+              {ocrNumbers.length === 0 ? (
+                <div className="space-y-4 flex-1 flex flex-col items-center justify-center py-6">
+                  <div className="w-full max-w-lg p-8 bg-white/5 border border-dashed border-emerald-500/30 rounded-[2.5rem] text-center space-y-4 flex flex-col items-center hover:bg-emerald-500/5 transition-all">
+                    <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-400">
+                      {ocrLoading ? <Activity size={30} className="animate-spin" /> : <Upload size={30} />}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-white uppercase italic tracking-tighter">
+                        {ocrLoading ? "Escaneando imagen con OCR..." : "Seleccionar Captura de Pantalla"}
+                      </h3>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">
+                        {ocrLoading ? "Analizando números de teléfono..." : "Sube la imagen con los números telefónicos (PNG, JPG, JPEG)"}
+                      </p>
+                    </div>
+                    {!ocrLoading && (
+                      <button 
+                        onClick={() => ocrFileInputRef.current.click()} 
+                        className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                      >
+                        <Upload size={14} /> SUBIR IMAGEN
+                      </button>
+                    )}
+                    <input 
+                      type="file" 
+                      ref={ocrFileInputRef} 
+                      onChange={handleOcrImageUpload} 
+                      accept="image/*" 
+                      className="hidden" 
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
+                  {/* Reference & Config Bar */}
+                  <div className="grid grid-cols-3 gap-2 bg-white/5 p-2 rounded-xl border border-white/10 shrink-0">
+                    <div className="space-y-0.5">
+                      <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Etiqueta / Referencia Origen</label>
+                      <input 
+                        value={ocrReference} 
+                        onChange={e => setOcrReference(e.target.value)} 
+                        placeholder="Ej: Captura WA Promo" 
+                        className="w-full bg-[#0f172a] border border-white/10 rounded-lg px-2.5 py-1 text-white text-[11px] font-bold outline-none focus:border-emerald-500" 
+                      />
+                    </div>
+                    <div className="space-y-0.5">
+                      <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Rubro / Grupo CRM</label>
+                      <select 
+                        value={ocrGroup} 
+                        onChange={e => setOcrGroup(e.target.value)} 
+                        className="w-full bg-[#0f172a] border border-white/10 rounded-lg px-2.5 py-1 text-white text-[11px] font-bold outline-none appearance-none cursor-pointer"
+                      >
+                        {rubros.filter(r => r !== 'TODOS').map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-end">
+                      <button 
+                        onClick={() => { setOcrNumbers([]); setOcrImagePreview(''); }} 
+                        className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg text-[8px] font-black uppercase transition-all flex items-center gap-1"
+                      >
+                        <X size={12} /> Cambiar Imagen
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Main Grid: Forced Side-by-Side Grid (cols-12) */}
+                  <div className="grid grid-cols-12 gap-2 flex-1 min-h-0 overflow-hidden">
+                    {/* Left: Image Thumbnail */}
+                    <div className="col-span-4 bg-black/60 rounded-xl p-1.5 border border-white/10 flex items-center justify-center h-[200px] overflow-hidden">
+                      {ocrImagePreview && (
+                        <img 
+                          src={ocrImagePreview} 
+                          alt="Captura escaneada" 
+                          className="max-h-[190px] max-w-full object-contain rounded border border-white/10 shadow" 
+                        />
+                      )}
+                    </div>
+
+                    {/* Right: Table of Detected Numbers */}
+                    <div className="col-span-8 flex flex-col h-[200px] border border-white/10 rounded-xl bg-black/50 overflow-hidden">
+                      <div className="px-2 py-1 bg-white/5 border-b border-white/10 flex items-center justify-between shrink-0">
+                        <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                          <CheckCircle2 size={12} /> {ocrNumbers.filter(n => n.selected).length} / {ocrNumbers.length} Seleccionados
+                        </span>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => setOcrNumbers(ocrNumbers.map(n => ({ ...n, selected: true })))} 
+                            className="text-[8px] font-black text-sky-400 hover:underline uppercase"
+                          >
+                            Todos
+                          </button>
+                          <span className="text-slate-600">|</span>
+                          <button 
+                            onClick={() => setOcrNumbers(ocrNumbers.map(n => ({ ...n, selected: false })))} 
+                            className="text-[8px] font-black text-slate-500 hover:underline uppercase"
+                          >
+                            Ninguno
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
+                        {ocrNumbers.map((item) => (
+                          <div 
+                            key={item.id} 
+                            className={`flex items-center justify-between px-2 py-1 rounded-lg border transition-all ${item.selected ? 'bg-emerald-500/10 border-emerald-500/30 text-white' : 'bg-white/5 border-white/5 text-slate-500 opacity-50'}`}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <input 
+                                type="checkbox" 
+                                checked={item.selected} 
+                                onChange={e => setOcrNumbers(ocrNumbers.map(n => n.id === item.id ? { ...n, selected: e.target.checked } : n))} 
+                                className="w-3.5 h-3.5 rounded accent-emerald-500 cursor-pointer shrink-0" 
+                              />
+                              <Phone size={10} className="text-emerald-400 shrink-0" />
+                              <span className="text-[11px] font-black tracking-wider text-white shrink-0">{item.formatted}</span>
+                              <span className="text-[8px] font-mono text-slate-500 truncate max-w-[80px]">({item.raw})</span>
+                              <input 
+                                value={item.customName} 
+                                onChange={e => setOcrNumbers(ocrNumbers.map(n => n.id === item.id ? { ...n, customName: e.target.value } : n))} 
+                                placeholder="Nombre..." 
+                                className="ml-auto w-36 bg-black/60 border border-white/10 rounded px-1.5 py-0.5 text-[9px] text-white font-bold outline-none focus:border-emerald-500" 
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer Confirm Action */}
+                  <div className="shrink-0 pt-1.5 border-t border-white/10 flex items-center justify-between">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">
+                      Contactos agendados en estado "Pendiente" para identificarlos al hablar.
+                    </p>
+                    <button 
+                      onClick={handleSaveOcrContacts} 
+                      disabled={ocrLoading} 
+                      className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                      {ocrLoading ? <Activity className="animate-spin" size={14} /> : <><CheckCircle2 size={14}/> AGENDAR CONTACTOS ({ocrNumbers.filter(n => n.selected).length})</>}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        </AnimatePresence>,
+        document.body
+      )}
+      </div>
   );
 }

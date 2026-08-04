@@ -1,4 +1,18 @@
+// ============================================================
+// ⚠️  DEPRECATED — NO USAR
+// ============================================================
+// Este servicio fue reemplazado por:
+//   ai_core/meta_service/server.js
+//
+// Razón: Meta Cloud API (oficial) reemplaza Baileys (no oficial).
+// Baileys viola los ToS de WhatsApp y puede ser baneado sin previo aviso.
+//
+// Fecha de deprecación: Julio 2026
+// Reemplazado por: Meta WhatsApp Business API via meta_service
+// ============================================================
+
 const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, downloadMediaMessage } = require('@whiskeysockets/baileys');
+
 const pino = require('pino');
 const QRCode = require('qrcode');
 const { Pool } = require('pg');
@@ -288,7 +302,7 @@ class BaileysService {
     }
   }
 
-  async sendMedia(instanceName, to, mediatype, media, caption, fileName) {
+  async sendMedia(instanceName, to, mediatype, media, caption, fileName, explicitMimetype) {
     const sock = this.instances.get(instanceName);
     if (!sock) throw new Error(`Instance ${instanceName} not found`);
 
@@ -297,13 +311,13 @@ class BaileysService {
       let payload = {};
 
       if (mediatype === 'image') {
-        payload = { image: buffer, caption: caption };
+        payload = { image: buffer, caption: caption, mimetype: explicitMimetype || 'image/jpeg' };
       } else if (mediatype === 'video') {
-        payload = { video: buffer, caption: caption };
+        payload = { video: buffer, caption: caption, mimetype: explicitMimetype || 'video/mp4' };
       } else if (mediatype === 'audio') {
-        payload = { audio: buffer, mimetype: 'audio/mp4' };
+        payload = { audio: buffer, mimetype: explicitMimetype || 'audio/mp4' };
       } else {
-        payload = { document: buffer, fileName: fileName || 'document.pdf', mimetype: 'application/pdf' };
+        payload = { document: buffer, fileName: fileName || 'document.pdf', mimetype: explicitMimetype || 'application/pdf', caption: caption };
       }
 
       await sock.sendMessage(to, payload);

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="IA Box">
+  <defs>
+    <linearGradient id="g" x1="86" y1="72" x2="430" y2="444" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38D9FF"/>
+      <stop offset="0.52" stop-color="#244CFF"/>
+      <stop offset="1" stop-color="#FF00C8"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientTransform="translate(170 120) rotate(50) scale(470)">
+      <stop stop-color="#111E55"/>
+      <stop offset="0.58" stop-color="#07102D"/>
+      <stop offset="1" stop-color="#030613"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="18" y="18" width="476" height="476" rx="96" fill="none" stroke="url(#g)" stroke-width="12" opacity="0.72"/>
+  <g fill="none" stroke="url(#g)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M116 264 256 182l140 82v150l-140 82-140-82Z" stroke-width="25"/>
+    <path d="m116 264 140 82 140-82M256 346v150" stroke-width="21"/>
+  </g>
+  <g>
+    <path d="M256 118V82" stroke="#FF00C8" stroke-width="20" stroke-linecap="round"/>
+    <circle cx="256" cy="67" r="17" fill="#FF00C8"/>
+    <rect x="158" y="112" width="196" height="142" rx="46" fill="#07102D" stroke="#6D8DFF" stroke-width="24"/>
+    <rect x="198" y="153" width="116" height="62" rx="31" fill="#101D6B" stroke="#244CFF" stroke-width="16"/>
+    <circle cx="234" cy="184" r="14" fill="#FF00C8"/>
+    <circle cx="278" cy="184" r="14" fill="#FF00C8"/>
+    <rect x="130" y="160" width="28" height="55" rx="14" fill="#07102D" stroke="#FF00C8" stroke-width="14"/>
+    <rect x="354" y="160" width="28" height="55" rx="14" fill="#07102D" stroke="#FF00C8" stroke-width="14"/>
+  </g>
+</svg>

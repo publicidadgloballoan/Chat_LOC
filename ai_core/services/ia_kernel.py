@@ -212,7 +212,10 @@ CATÃLOGO COMPLETO:
         internal_prompts = ["Conversation Summarizer", "Extractor de CatÃ¡logo", "Buscador de Zonas", "Coordinador de flujo", "Resume en 3 lineas", "Media Analyzer"]
         is_internal = any(system_prompt.startswith(p) for p in internal_prompts)
 
-        if not is_internal:
+        is_dogs_company = any(k in system_prompt.lower() for k in ["perro", "raza", "cachorro", "canes", "nico ventas"])
+        is_other_company = any(k in system_prompt.lower() for k in ["colaboratium", "fintech", "kyc", "p2p", "prestamo", "préstamo", "iabox", "ia box", "baulera", "box", "guardado", "estados unidos 2339", "oficina virtual"])
+
+        if not is_internal and is_dogs_company and not is_other_company:
             import re
             catalog_regex = re.compile(r'\b(hola|buenas|buen dia|buen día|buenas tardes|buenas noches|cuales|cuáles|qué|que)\s*(tenés|tenes|tienes|tienen|razas|opciones|perros|hay)?\b|\b(catalogo|catálogo|lista|razas|listado|precios|ver todo)\b', re.IGNORECASE)
             
@@ -251,8 +254,20 @@ CATÃLOGO COMPLETO:
         if cerebras_res:
             return {"source": "CEREBRAS_CLOUD", "text": cerebras_res}
         
+        # Fallback a Groq
+        logger.warning("Falla en Cerebras, intentando con Groq...")
+        groq_res = self.query_groq_fallback(messages)
+        if groq_res:
+            return {"source": "GROQ_FALLBACK", "text": groq_res}
+
+        # Fallback a Gemini
+        logger.warning("Falla en Groq, intentando con Gemini...")
+        gemini_res = self.query_gemini_fallback(messages)
+        if gemini_res:
+            return {"source": "GEMINI_FALLBACK", "text": gemini_res}
+
         # Fallback a OpenRouter
-        logger.warning("Falla en Cerebras, intentando con OpenRouter...")
+        logger.warning("Falla en Gemini, intentando con OpenRouter...")
         openrouter_res = self.query_openrouter(messages)
         if openrouter_res:
             return {"source": "OPENROUTER_NEX_N2", "text": openrouter_res}

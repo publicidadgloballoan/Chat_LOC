@@ -2672,6 +2672,36 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
         logger.info(f" [PROC-START] Hilo iniciado para {phone} en {inst_name}. Body: {body[:30]}")
         # 1. Normalización y Configuración
         inst_name = inst_name.replace("@", "")
+
+        # --- FILTRO MODO DEBUG / LISTA BLANCA DE TELÉFONOS ---
+        try:
+            debug_conf = None
+            for dbg_p in [
+                os.path.join(CONFIG_DIR, inst_name, "debug_mode.json"),
+                os.path.join(CONFIG_DIR, inst_name, "configs", "debug_mode.json"),
+                os.path.join(CONFIG_DIR, "debug_mode.json")
+            ]:
+                if dbg_p and os.path.exists(dbg_p):
+                    try:
+                        c_json = json.load(open(dbg_p, "r", encoding="utf-8"))
+                        if c_json and c_json.get("enabled"):
+                            debug_conf = c_json
+                            break
+                    except: pass
+            
+            if debug_conf and debug_conf.get("enabled"):
+                allowed_phones = [re.sub(r'\D', '', str(p)) for p in debug_conf.get("phones", [])]
+                clean_phone = re.sub(r'\D', '', str(phone))
+                is_allowed = str(phone).startswith("STRESS_") or any(
+                    (ap in clean_phone or clean_phone in ap) for ap in allowed_phones if len(ap) >= 6
+                )
+                if not is_allowed:
+                    logger.info(f" [DEBUG-MODE] Mensaje de {phone} bloqueado. Modo debug activo para: {allowed_phones}")
+                    processing_count -= 1
+                    return
+        except Exception as dbg_err:
+            logger.error(f"[DEBUG-FILTER-ERR] {dbg_err}")
+
         conf_a1, _, _ = cache_get_config(inst_name)
         step = conf_a1.get("step", "STEP_NICO_VENTAS")
         state, manual, cur_name, chan, _, handoff, named, cur_summary = get_session(phone, inst_name)
@@ -2734,7 +2764,15 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                 if not os.path.exists(logistics_p) and os.path.exists(os.path.join(conf_c, "logistics.json")): logistics_p = os.path.join(conf_c, "logistics.json")
                 if not os.path.exists(catalog_p) and os.path.exists(os.path.join(conf_c, "media_catalog.json")): catalog_p = os.path.join(conf_c, "media_catalog.json")
 
-            ia_prompt = conf_a1.get("ia_prompt", "Eres un experto en Nico Ventas.")
+            ia_prompt = conf_a1.get("ia_prompt")
+            if not ia_prompt:
+                if company_id == 2:
+                    ia_prompt = "Eres el Asesor Virtual Oficial de Colaboratium (Fintech, Préstamos P2P y Procesos KYC). Responde de forma clara y profesional."
+                elif company_id == 3:
+                    ia_prompt = "Eres el Asesor Virtual Oficial de IA Box (Boxes, Bauleras y Oficina Virtual en Estados Unidos 2339, CABA). Responde de forma cordial, profesional y clara sobre guardado de muebles, cajas, vehículos, mercadería, depósitos y oficina virtual con domicilio fiscal."
+                else:
+                    ia_prompt = "Eres el Asesor Virtual de Ventas y Atención al Cliente."
+
             kn = cache_get_knowledge(inst_name)
             if kn:
                 ia_prompt += f"\n\n--- BASE DE CONOCIMIENTO (LEER ESTRICTAMENTE) ---\n{kn}\n-----------------------------------\n"
@@ -2757,7 +2795,13 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                             items_list.append({"name": k, "price": p_val})
 
                     if items_list:
-                        pricing_txt = "\n".join([f"- {b.get('name')}: ${b.get('price'):,}" for b in items_list if isinstance(b, dict) and b.get('name') and b.get('price')])
+                        pricing_lines = []
+                        for b in items_list:
+                            if isinstance(b, dict) and b.get('name'):
+                                p = b.get('price')
+                                p_fmt = f"${p:,}" if isinstance(p, (int, float)) else str(p or 'Consultar')
+                                pricing_lines.append(f"- {b.get('name')}: {p_fmt}")
+                        pricing_txt = "\n".join(pricing_lines)
                         ia_prompt += f"\n\n--- CATÁLOGO OFICIAL DE PRECIOS (LEER ESTRICTAMENTE) ---\n{pricing_txt}\n-----------------------------------\n"
             except Exception as pr_err:
                 logger.error(f"[INJECT-PRICING ERROR] {pr_err}")
@@ -2816,9 +2860,11 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
             targets = {e['target'] for e in edges}
             first_node_id = next((n['id'] for n in flow_data.get('nodes', []) if n['id'] not in targets), None)
             if not first_node_id and flow_data.get('nodes'): first_node_id = flow_data['nodes'][0]['id']
-            if not state or state not in nodes:
+            if first_node_id and nodes.get(first_node_id, {}).get('type') == 'webhook':
+                first_node_id = next_node_map.get(first_node_id, first_node_id)
+            if not state or state not in nodes or nodes.get(state, {}).get('type') == 'webhook':
                 new_state = first_node_id
-                state = None
+                state = first_node_id
             else:
                 new_state = state
 

@@ -31,6 +31,7 @@ class BaileysService {
     this.lidToPhone = new Map();
     this.connectionStates = new Map(); // 'open' | 'connecting' | 'close'
     this.instancePhones = new Map();
+    this.sentApiMessageIds = new Set(); // Track bot-sent messages to distinguish human operator messages
     this.db = new Pool(dbConfig);
     this.logger = pino({ level: 'info' });
     this._loadWebhooks();
@@ -183,12 +184,19 @@ class BaileysService {
       sock.ev.on('messages.upsert', async ({ messages, type }) => {
         try {
           for (const msg of messages) {
-            if (!msg.message || msg.key.fromMe) continue;
+            if (!msg.message) continue;
 
             const from = msg.key.remoteJid;
+            // Skip group messages and broadcast/status updates
+            if (!from || from.endsWith('@g.us') || from.includes('broadcast') || from === 'status@broadcast') continue;
 
-            // Skip group messages only
-            if (from.endsWith('@g.us')) continue;
+            const isFromMe = Boolean(msg.key.fromMe);
+            const msgId = msg.key.id;
+
+            // Si fue enviado por la API automatizada de nuestro bot, no lo tratamos como operador humano
+            if (isFromMe && this.sentApiMessageIds.has(msgId)) {
+              continue;
+            }
 
             const messageText = msg.message.conversation ||
                                msg.message.extendedTextMessage?.text ||
@@ -196,7 +204,7 @@ class BaileysService {
 
             // Resolve @lid to real phone number
             let resolvedJid = from;
-            if (from.endsWith('@lid')) {
+            if (from && from.endsWith('@lid')) {
               const lidId = from.replace(/@lid$/, '');
               const realPhone = this.lidToPhone.get(lidId);
               if (realPhone) {
@@ -207,29 +215,31 @@ class BaileysService {
               }
             }
 
-            this.logger.info(`Message received from ${resolvedJid}: ${messageText}`);
+            const roleName = isFromMe ? 'operator' : 'user';
+            this.logger.info(`Message (${roleName}) ${resolvedJid}: ${messageText}`);
 
             // Log message to messages.jsonl
             try {
               const msgLog = {
                 fecha: new Date().toISOString().replace('T', ' ').substring(0, 19),
-                numero: resolvedJid.replace('@s.whatsapp.net', ''),
+                numero: resolvedJid ? resolvedJid.replace('@s.whatsapp.net', '') : '',
                 mensaje: messageText,
-                rol: 'user'
+                rol: roleName
               };
               fs.appendFileSync(path.join(__dirname, 'baileys_auth', 'messages.jsonl'), JSON.stringify(msgLog) + '\n');
             } catch (err) {
               this.logger.error(`Error logging message: ${err.message}`);
             }
 
-            // Send to webhook if configured
-            const webhookUrl = this.webhooks.get(instanceName);
+            // Send to webhook (use configured url or default 127.0.0.1:5000)
+            const webhookUrl = this.webhooks.get(instanceName) || process.env.WEBHOOK_GLOBAL_URL || 'http://127.0.0.1:5000/webhook';
             if (webhookUrl) {
               try {
                 const resolvedKey = { ...msg.key, remoteJid: resolvedJid };
                 await axios.post(webhookUrl, {
                   event: 'messages.upsert',
                   instance: instanceName,
+                  isHumanOperator: isFromMe,
                   data: {
                     key: resolvedKey,
                     message: msg.message,
@@ -238,7 +248,7 @@ class BaileysService {
                   }
                 }, { timeout: 5000 });
 
-                this.logger.info(`Message forwarded to webhook: ${webhookUrl}`);
+                this.logger.info(`Message forwarded to webhook (isHuman=${isFromMe}): ${webhookUrl}`);
               } catch (err) {
                 this.logger.error(`Webhook error: ${err.message}`);
               }
@@ -279,7 +289,14 @@ class BaileysService {
     }
 
     try {
-      await sock.sendMessage(to, { text });
+      const sent = await sock.sendMessage(to, { text });
+      if (sent?.key?.id) {
+        this.sentApiMessageIds.add(sent.key.id);
+        if (this.sentApiMessageIds.size > 2000) {
+          const first = this.sentApiMessageIds.values().next().value;
+          this.sentApiMessageIds.delete(first);
+        }
+      }
       this.logger.info(`Message sent to ${to}: ${text}`);
 
       // Log outgoing message
@@ -320,7 +337,14 @@ class BaileysService {
         payload = { document: buffer, fileName: fileName || 'document.pdf', mimetype: explicitMimetype || 'application/pdf', caption: caption };
       }
 
-      await sock.sendMessage(to, payload);
+      const sent = await sock.sendMessage(to, payload);
+      if (sent?.key?.id) {
+        this.sentApiMessageIds.add(sent.key.id);
+        if (this.sentApiMessageIds.size > 2000) {
+          const first = this.sentApiMessageIds.values().next().value;
+          this.sentApiMessageIds.delete(first);
+        }
+      }
       this.logger.info(`Media sent to ${to} (${mediatype})`);
       return { success: true };
     } catch (error) {

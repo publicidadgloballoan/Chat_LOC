@@ -101,35 +101,49 @@ CATÃLOGO COMPLETO:
         return base_prompt + "\n\n" + rules
 
     def query_groq_fallback(self, messages):
-        if not GROQ_API_KEY:
+        groq_key = os.getenv("GROQ_API_KEY") or GROQ_API_KEY
+        if not groq_key:
             logger.warning("[GROQ FALLBACK] GROQ_API_KEY no encontrada.")
             return None
-        try:
-            r = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json={"model": "llama-3.1-8b-instant", "messages": messages, "temperature": 0.6, "max_tokens": 1024},
-                timeout=15
-            )
-            if r.status_code == 200:
-                data = r.json()
-                usage = data.get('usage', {})
-                logger.info(f"[GROQ FALLBACK] Tokens: {usage.get('total_tokens')}")
-                self._update_stats("Groq (llama-3.1-8b)", tokens=usage.get('total_tokens', 0), success=1)
-                return data['choices'][0]['message']['content']
-        except Exception as e:
-            logger.error(f"[GROQ FALLBACK] ExcepciÃ³n: {e}")
-        self._update_stats("Groq (llama-3.1-8b)", fail=1)
+        
+        # Protege contra error 413 (Payload Too Large) de Groq limitando el system prompt a 12k chars
+        safe_messages = []
+        for m in messages:
+            content = m.get("content", "")
+            if m.get("role") == "system" and len(content) > 12000:
+                content = content[:12000] + "\n\n[... Base de conocimiento recortada para consulta rápida ...]"
+            safe_messages.append({"role": m.get("role", "user"), "content": content})
+
+        for model_name in ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]:
+            try:
+                r = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                    json={"model": model_name, "messages": safe_messages, "temperature": 0.6, "max_tokens": 800},
+                    timeout=12
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    usage = data.get('usage', {})
+                    logger.info(f"[GROQ] Modelo {model_name} Tokens: {usage.get('total_tokens')}")
+                    self._update_stats(f"Groq ({model_name})", tokens=usage.get('total_tokens', 0), success=1)
+                    return data['choices'][0]['message']['content']
+                else:
+                    logger.error(f"[GROQ] Error {r.status_code} con {model_name}: {r.text[:100]}")
+            except Exception as e:
+                logger.error(f"[GROQ] Error con {model_name}: {e}")
+        self._update_stats("Groq", fail=1)
         return None
 
     def query_gemini_fallback(self, messages):
-        if not GEMINI_API_KEY:
+        gemini_key = os.getenv("GEMINI_API_KEY") or GEMINI_API_KEY
+        if not gemini_key:
             logger.warning("[GEMINI FALLBACK] GEMINI_API_KEY no encontrada.")
             return None
         try:
             prompt = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in messages])
-            prompt += "\n\nIMPORTANTE: Si el usuario manda '__MULTIMEDIA__', asume que es el comprobante de pago vÃ¡lido y responde confirmando la recepciÃ³n y pidiendo los Ãºltimos datos de envÃ­o si faltan."
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+            prompt += "\n\nIMPORTANTE: Si el usuario manda '__MULTIMEDIA__', asume que es el comprobante de pago válido y responde confirmando la recepción y pidiendo los últimos datos de envío si faltan."
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
             r = requests.post(url, json=payload, timeout=15)
             if r.status_code == 200:
@@ -138,18 +152,19 @@ CATÃLOGO COMPLETO:
                 self._update_stats("Gemini 1.5 Flash", success=1)
                 return data['candidates'][0]['content']['parts'][0]['text']
         except Exception as e:
-            logger.error(f"[GEMINI FALLBACK] ExcepciÃ³n: {e}")
+            logger.error(f"[GEMINI FALLBACK] Excepción: {e}")
         self._update_stats("Gemini 1.5 Flash", fail=1)
         return None
 
     def query_cerebras_fallback(self, messages):
-        if not CEREBRAS_API_KEY:
+        cerebras_key = os.getenv("CEREBRAS_API_KEY") or CEREBRAS_API_KEY
+        if not cerebras_key:
             logger.warning("[CEREBRAS FALLBACK] CEREBRAS_API_KEY no encontrada.")
             return None
         try:
             r = requests.post(
                 "https://api.cerebras.ai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {CEREBRAS_API_KEY}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {cerebras_key}", "Content-Type": "application/json"},
                 json={"model": "gemma-4-31b", "messages": messages, "temperature": 0.6, "max_tokens": 1024},
                 timeout=15
             )
@@ -165,21 +180,22 @@ CATÃLOGO COMPLETO:
         return None
 
     def query_openrouter(self, messages):
-        if not OPENROUTER_API_KEY:
+        openrouter_key = os.getenv("OPENROUTER_API_KEY") or OPENROUTER_API_KEY
+        if not openrouter_key:
             logger.warning("[OPENROUTER] OPENROUTER_API_KEY no encontrada.")
             return None
         try:
             r = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Authorization": f"Bearer {openrouter_key}",
                     "Content-Type": "application/json"
                 },
                 json={
                     "model": "meta-llama/llama-3.1-8b-instruct", 
                     "messages": messages, 
                     "temperature": 0.6, 
-                    "max_tokens": 4096
+                    "max_tokens": 1024
                 },
                 timeout=20
             )
@@ -248,17 +264,17 @@ CATÃLOGO COMPLETO:
                 return {"source": "GROQ_INTERNAL", "text": groq_res}
             # Si Groq falla, seguimos al flujo normal (Ollama)
             
-        # Llamada Principal al Cerebro Cerebras
-        logger.info("Enrutando consulta a Cerebras Cloud...")
+        # Llamada Principal de Alta Velocidad (Groq)
+        logger.info("Enrutando consulta a Groq Cloud (Ultra Rápido)...")
+        groq_res = self.query_groq_fallback(messages)
+        if groq_res:
+            return {"source": "GROQ_CLOUD", "text": groq_res}
+
+        # Fallback a Cerebras
+        logger.warning("Falla en Groq, intentando con Cerebras Cloud...")
         cerebras_res = self.query_cerebras_fallback(messages)
         if cerebras_res:
             return {"source": "CEREBRAS_CLOUD", "text": cerebras_res}
-        
-        # Fallback a Groq
-        logger.warning("Falla en Cerebras, intentando con Groq...")
-        groq_res = self.query_groq_fallback(messages)
-        if groq_res:
-            return {"source": "GROQ_FALLBACK", "text": groq_res}
 
         # Fallback a Gemini
         logger.warning("Falla en Groq, intentando con Gemini...")

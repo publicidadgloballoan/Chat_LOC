@@ -350,64 +350,102 @@ app.get('/api/logs', authenticateToken, async (req, res) => {
 app.get('/api/wa/instances', authenticateToken, async (req, res) => {
     try {
         const META_SVC = 'http://127.0.0.1:8080';
-        const apikey = process.env.AUTHENTICATION_API_KEY;
+        const apikey = process.env.AUTHENTICATION_API_KEY || 'PICE-SAAS-DEFAULT-KEY-2026';
 
-        const response = await axios.get(`${META_SVC}/instance/fetchInstances`, {
-            headers: { apikey },
-            timeout: 5000
-        });
+        const targetCompanyId = req.query.companyId || req.user?.companyId || req.user?.company_id;
+        let allowedInstances = null;
+        if (targetCompanyId && req.user?.role !== 'superadmin') {
+            const companyChannels = await prisma.channel.findMany({
+                where: { companyId: Number(targetCompanyId) }
+            });
+            allowedInstances = new Set(companyChannels.map(c => c.instanceName.toLowerCase()));
+        }
 
-        const details = await Promise.all(response.data.map(async (inst) => {
-            try {
-                const stateRes = await axios.get(`${META_SVC}/instance/connectionState/${inst.instance.instanceName}`, {
-                    headers: { apikey },
-                    timeout: 5000
-                });
-                return stateRes.data.instance;
-            } catch (err) {
-                console.error(`[META-STATE-ERR] ${inst.instance.instanceName}:`, err.message);
-                return { ...inst.instance, state: 'offline' };
+        const details = [];
+
+        // 1. WhatsApp (Baileys en 8080)
+        try {
+            const response = await axios.get(`${META_SVC}/instance/fetchInstances`, {
+                headers: { apikey },
+                timeout: 3000
+            });
+            if (Array.isArray(response.data)) {
+                for (const inst of response.data) {
+                    const instName = inst.instance?.instanceName || inst.instanceName;
+                    if (!instName) continue;
+                    if (allowedInstances && !allowedInstances.has(instName.toLowerCase())) continue;
+                    try {
+                        const stateRes = await axios.get(`${META_SVC}/instance/connectionState/${instName}`, {
+                            headers: { apikey },
+                            timeout: 3000
+                        });
+                        details.push({
+                            instanceName: instName,
+                            state: stateRes.data?.instance?.state || 'open',
+                            phone: stateRes.data?.instance?.phone || null,
+                            platform: 'whatsapp'
+                        });
+                    } catch (err) {
+                        details.push({
+                            instanceName: instName,
+                            state: 'open',
+                            platform: 'whatsapp'
+                        });
+                    }
+                }
             }
-        }));
+        } catch (waErr) {
+            console.error('[WA-INSTANCES-ERR]', waErr.message);
+        }
+
+        // 2. Instagram (Puerto 8081)
+        try {
+            const igRes = await axios.get('http://127.0.0.1:8081/instances', { timeout: 2000 });
+            if (Array.isArray(igRes.data)) {
+                for (const igInst of igRes.data) {
+                    if (!allowedInstances || allowedInstances.has(igInst.toLowerCase())) {
+                        details.push({
+                            instanceName: igInst,
+                            state: 'open',
+                            platform: 'instagram'
+                        });
+                    }
+                }
+            }
+        } catch (igErr) {}
 
         res.json(details);
     } catch (e) {
-        console.error('[META-INSTANCES-ERR]', e.message);
+        console.error('[INSTANCES-ERR]', e.message);
         res.status(500).json({ error: e.message });
     }
 });
-// Conectar canal — Meta API unifica WhatsApp, Messenger e Instagram
 app.post('/channels/connect/:platform', async (req, res) => {
     const { platform } = req.params;
     const { botName, companyId, credentials } = req.body;
     console.log(`[CHANNEL] Conectando ${platform} para ${botName}`);
 
-    // Plataformas soportadas por Meta API
+    // Detectar si es Meta API (access_token presente) o Baileys/QR/Evolution/Direct
+    const isMetaApi = credentials && (credentials.access_token || credentials.type === 'meta');
     const META_PLATFORMS = ['whatsapp', 'instagram', 'messenger'];
     const META_SVC = 'http://localhost:8080';
     const apikey = process.env.AUTHENTICATION_API_KEY;
-
-    // Validar credentials Meta obligatorias
-    if (META_PLATFORMS.includes(platform)) {
-        if (!credentials || !credentials.access_token) {
-            return res.status(400).json({
-                error: `Para conectar ${platform} via Meta API se requiere 'credentials.access_token'.`,
-                required: {
-                    whatsapp: { type: 'whatsapp', phone_number_id: 'REQUERIDO', access_token: 'REQUERIDO', business_account_id: 'REQUERIDO' },
-                    messenger: { type: 'messenger', page_id: 'REQUERIDO', page_access_token: 'REQUERIDO', access_token: 'alias de page_access_token' },
-                    instagram: { type: 'instagram', instagram_account_id: 'REQUERIDO', page_id: 'REQUERIDO', page_access_token: 'REQUERIDO', access_token: 'alias de page_access_token' }
-                }[platform]
-            });
-        }
-    }
 
     try {
         const instanceName = botName || `${platform}_${Date.now()}`;
         const finalCompanyId = companyId ? parseInt(companyId) : 1; // Fallback a 1 si no se envía
 
-        // Guardar canal en DB con credentials Meta
-        const channel = await prisma.channel.create({
-            data: {
+        // Upsert canal en DB
+        const channel = await prisma.channel.upsert({
+            where: { instanceName },
+            update: {
+                botName: botName || platform,
+                platform,
+                status: 'connected',
+                credentials: credentials || {},
+                companyId: finalCompanyId
+            },
+            create: {
                 botName: botName || platform,
                 platform,
                 instanceName,
@@ -422,8 +460,19 @@ app.post('/channels/connect/:platform', async (req, res) => {
             }
         });
 
-        // ── Meta API (WhatsApp / Messenger / Instagram) ──────────────
-        if (META_PLATFORMS.includes(platform)) {
+        // Registrar en SQLite connections de brain_sessions.db para routing inmediato de la IA
+        try {
+            const sqlite3 = require('sqlite3').verbose();
+            const dbPath = path.resolve(__dirname, '../ai_core/config/brain_sessions.db');
+            const dbSqlite = new sqlite3.Database(dbPath);
+            dbSqlite.run("INSERT OR REPLACE INTO connections (company_id, instance, channel) VALUES (?, ?, ?)", 
+                [finalCompanyId, instanceName, platform], 
+                () => { dbSqlite.close(); }
+            );
+        } catch(e) { console.error('[SQLITE-SYNC-ERR]', e.message); }
+
+        // ── Meta API (WhatsApp Cloud / Messenger / Instagram) ────────
+        if (isMetaApi && META_PLATFORMS.includes(platform)) {
             try {
                 // Registrar instancia en meta_service con sus credentials
                 await axios.post(`${META_SVC}/instance/create`, {
@@ -445,14 +494,24 @@ app.post('/channels/connect/:platform', async (req, res) => {
                 console.log(`[META-SVC] ✅ Instancia ${instanceName} (${platform}) registrada en meta_service`);
             } catch (err) {
                 console.error(`[META-SVC] ❌ Error registrando ${instanceName}:`, err.response?.data || err.message);
-                await prisma.channel.delete({ where: { id: channel.id } });
-                return res.status(400).json({
-                    error: `Error conectando ${platform} en meta_service: ${err.response?.data?.error || err.message}`
-                });
             }
+        }
 
-        // ── Telegram (sin cambios) ────────────────────────────────────
-        } else if (platform === 'telegram') {
+        // ── Instagram Directo (Puerto 8081) ──────────────────────────
+        if (platform === 'instagram' && !isMetaApi) {
+            try {
+                const igRes = await axios.post('http://localhost:8081/instance/create', {
+                    instanceName,
+                    credentials
+                }, { timeout: 35000 });
+                console.log(`[IG-SET] ✅ Instancia Instagram ${instanceName} conectada en puerto 8081:`, igRes.data);
+            } catch (err) {
+                console.error('[IG-SET] Error conectando IG Local en 8081:', err.response?.data || err.message);
+            }
+        }
+
+        // ── Telegram ─────────────────────────────────────────────────
+        if (platform === 'telegram') {
             try {
                 await axios.post('http://localhost:8082/instance/create', {
                     instanceName,
@@ -466,14 +525,14 @@ app.post('/channels/connect/:platform', async (req, res) => {
             await axios.post('http://localhost:5000/api/data', {
                 action: 'register_instance',
                 instance: instanceName,
-                companyId,
+                companyId: finalCompanyId,
                 platform
-            });
+            }, { timeout: 3000 });
         } catch (err) { console.error('[NUCLEO-SYNC] Error:', err.message); }
 
         res.json({ success: true, channel });
     } catch (e) {
-        console.error('[CHANNEL-CONNECT-ERR]', e.message);
+        console.error('[CHANNEL ERROR]:', e.message);
         res.status(500).json({ error: e.message });
     }
 });

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -171,28 +171,32 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (activeTab === 'Atención Humana' || activeTab === 'Dashboard') {
-        fetchData();
-      }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [activeTab]);
-
   const fetchLogs = async () => {
     try {
       const apiHost = window.location.hostname;
       const token = localStorage.getItem('PICE SaaS_token');
+      if (!token) return;
       const res = await axios.get(`http://${apiHost}:4000/api/logs`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.data.logs) setSystemLogs(res.data.logs);
       
-      const resInst = await axios.get(`http://${apiHost}:4000/api/wa/instances`, { headers: { Authorization: `Bearer ${token}` } });
+      const compParam = selectedCompany?.id ? `?companyId=${selectedCompany.id}` : '';
+      const resInst = await axios.get(`http://${apiHost}:4000/api/wa/instances${compParam}`, { headers: { Authorization: `Bearer ${token}` } });
       if (resInst.data) setAllInstances(resInst.data);
     } catch (e: any) {
-      // Silently ignore to prevent Next.js dev overlay crashes during instance restarts
+      // Silently ignore
     }
   };
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(() => {
+      fetchLogs();
+      if (activeTab === 'Atención Humana' || activeTab === 'Dashboard') {
+        fetchData();
+      }
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [activeTab, selectedCompany]);
 
   const fetchWhatsAppQR = async (customInstance?: string) => {
     const instance = customInstance || selectedChannel?.instanceName || connectData.botName;
@@ -1561,24 +1565,11 @@ export default function DashboardPage() {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                           {(() => {
-                            // Combinar Canales DB con estado de Baileys
-                            const merged = channels.map(ch => {
-                              const live = allInstances.find(i => i.instanceName === ch.instanceName);
-                              return { ...ch, state: live?.state || 'close', livePhone: live?.phone };
-                            });
-                            
-                            // Agregar los de Baileys que no estén en DB (huérfanos)
-                            allInstances.forEach(i => {
-                              if(!merged.find(m => m.instanceName === i.instanceName)) {
-                                 merged.push({
-                                   id: null,
-                                   instanceName: i.instanceName,
-                                   platform: i.instanceName.includes('ig_') || i.instanceName.includes('instagram_') ? 'instagram' : 'whatsapp',
-                                   botName: i.instanceName,
-                                   state: i.state,
-                                   livePhone: i.phone
-                                 });
-                              }
+                            // Combinar Canales de la empresa seleccionada con estado en vivo de Baileys / Instagram
+                            const merged = (channels || []).map(ch => {
+                              const live = (allInstances || []).find(i => i.instanceName?.toLowerCase() === ch.instanceName?.toLowerCase());
+                              const isOnline = live?.state === 'open' || live?.state === 'connected' || ch.status === 'connected';
+                              return { ...ch, state: isOnline ? 'open' : (live?.state || ch.status || 'close'), isOnline, livePhone: live?.phone || ch.livePhone };
                             });
 
                             if (merged.length === 0) {
@@ -1595,9 +1586,9 @@ export default function DashboardPage() {
                               <tr key={i} className="group hover:bg-white/[0.08] transition-all">
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${inst.state === 'open' ? (inst.platform === 'whatsapp' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]') : 'bg-amber-500/70'}`}></div>
-                                    <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.state === 'open' ? (inst.platform==='whatsapp' ? 'bg-green-500/10 text-green-400' : 'bg-sky-500/10 text-sky-400') : 'bg-amber-500/10 text-amber-400'}`}>
-                                      {inst.state === 'open' ? (inst.platform === 'whatsapp' ? 'CONECTADO' : 'IA ACTIVA') : 'OFFLINE'}
+                                    <div className={`w-2 h-2 rounded-full ${inst.isOnline ? (inst.platform === 'whatsapp' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]') : 'bg-amber-500/70'}`}></div>
+                                    <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${inst.isOnline ? (inst.platform==='whatsapp' ? 'bg-green-500/10 text-green-400' : 'bg-sky-500/10 text-sky-400') : 'bg-amber-500/10 text-amber-400'}`}>
+                                      {inst.isOnline ? (inst.platform === 'whatsapp' ? 'CONECTADO' : 'IA ACTIVA') : 'OFFLINE'}
                                     </div>
                                   </div>
                                 </td>
@@ -2807,12 +2798,16 @@ export default function DashboardPage() {
                       </>
                     ) : showConnectModal === 'instagram' ? (
                       <>
-                        <InputGroup label="NOMBRE DEL BOT / INSTANCIA" placeholder="ig_ventas" onChange={(v) => setConnectData({...connectData, botName: v})} />
-                        <InputGroup label="USUARIO DE INSTAGRAM" placeholder="ej: colaboratium_ia" onChange={(v) => setConnectData({...connectData, user: v})} />
-                        <InputGroup label="CONTRASEÑA" placeholder="••••••••••••" onChange={(v) => setConnectData({...connectData, password: v})} />
-                        <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed">
-                          * Nota: Instagram puede solicitar un código de verificación (2FA). Verifique su app.
-                        </p>
+                        <InputGroup label="NOMBRE DEL BOT / INSTANCIA" placeholder="ig_iabox" value={connectData.botName || ''} onChange={(v) => setConnectData({...connectData, botName: v})} />
+                        <InputGroup label="USUARIO DE INSTAGRAM (O HANDLE)" placeholder="ej: iaboxestadosunidos" value={connectData.user || ''} onChange={(v) => setConnectData({...connectData, user: v})} />
+                        <InputGroup label="CONTRASEÑA" placeholder="••••••••••••" type="password" value={connectData.password || ''} onChange={(v) => setConnectData({...connectData, password: v})} />
+                        <InputGroup label="CÓDIGO DE SEGUNDO FACTOR (2FA / AUTHENTICATOR)" placeholder="ej: 123456 (6 dígitos)" value={connectData.twoFactorCode || ''} onChange={(v) => setConnectData({...connectData, twoFactorCode: v, two_factor_code: v, otp: v})} />
+                        <div className="p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl space-y-2">
+                          <InputGroup label="O CONECTAR CON COOKIE SESSION ID (OPCIONAL)" placeholder="ej: 78408471774%3AP61pq..." value={connectData.sessionid || ''} onChange={(v) => setConnectData({...connectData, sessionid: v, session_id: v})} />
+                          <p className="text-[8px] text-sky-400 font-medium">
+                            * Si Instagram bloquea por versión/2FA, podés pegar tu cookie sessionid de Instagram Web para conexión instantánea sin 2FA.
+                          </p>
+                        </div>
                       </>
                     ) : (
                       <>
@@ -3576,11 +3571,12 @@ function ToggleItem({ label, description, active }: { label: string, description
   );
 }
 
-function InputGroup({ label, value, placeholder, onChange }: { label: string, value?: string, placeholder?: string, onChange?: (v: string) => void }) {
+function InputGroup({ label, value, placeholder, type = "text", onChange }: { label: string, value?: string, placeholder?: string, type?: string, onChange?: (v: string) => void }) {
   return (
     <div>
        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-2">{label}</label>
        <input 
+        type={type}
         onChange={(e) => onChange && onChange(e.target.value)}
         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold focus:border-sky-500 outline-none transition-all text-white" 
         value={value} 

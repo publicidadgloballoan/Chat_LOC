@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 import traceback
 
 # Cargar variables de entorno
+load_dotenv(r"c:\SaaSIA\backend\.env")
 load_dotenv()
 
 # --- CONFIGURACIÓN ESTRATÉGICA ---
@@ -256,7 +257,7 @@ def teardown_db(exception):
         except Exception as e:
             logger.error(f" [DB] Error al cerrar conexión SQLite en teardown_request: {e}")
 EVO_URL = "http://127.0.0.1:8080"
-EVO_API_KEY = os.getenv("AUTHENTICATION_API_KEY", "03d27a0c34fa708178148142d6f5eedc86cd5e3a")
+EVO_API_KEY = os.getenv("AUTHENTICATION_API_KEY", "PICE-SAAS-DEFAULT-KEY-2026")
 EVO_INSTANCE = "chatbot_punto_a"
 TG_URL = "http://127.0.0.1:8082"
 TG_INSTANCE = "colaboratium_ia_bot"
@@ -344,6 +345,22 @@ def cache_get_knowledge(inst_name):
         conn.close()
     except Exception as e:
         logger.error(f"Error fetching company_id for {inst_name}: {e}")
+
+    if not company_id:
+        try:
+            conn_pr = sqlite3.connect(r'c:\SaaSIA\backend\prisma\dev.db', timeout=5)
+            c_pr = conn_pr.cursor()
+            c_pr.execute("SELECT company_id FROM channels WHERE instance_name=? OR bot_name=?", (inst_name, inst_name))
+            row_pr = c_pr.fetchone()
+            if row_pr: company_id = row_pr[0]
+            conn_pr.close()
+        except: pass
+
+    if not company_id:
+        inst_l = inst_name.lower()
+        if "iabox" in inst_l or "virtual" in inst_l: company_id = 3
+        elif "colab" in inst_l or "global" in inst_l: company_id = 2
+        elif "canes" in inst_l: company_id = 1
 
     # Si hay una empresa asociada, cargar su conocimiento global
     if company_id:
@@ -781,12 +798,8 @@ def get_session(phone, instance):
     conn.close()
     if res:
         logger.info(f" [DB-DEBUG] get_session for {phone} in {instance} returned: {res}")
-        # FORZAR MANUAL 0 PARA PRUEBAS SI ES EL NUMERO DEL USER
-        if "5491136822400" in str(phone):
-            res_list = list(res)
-            res_list[1] = 0 # manual
-            return tuple(res_list)
-    return res if res else ("MENU", 0, None, "whatsapp", instance, 0, 0, None)
+        return res
+    return ("MENU", 0, None, "whatsapp", instance, 0, 0, None)
 
 def update_session(phone, instance, state=None, manual=None, name=None, channel=None, pending_handoff=None, summary=None, name_confirmed=None, update_incoming=False, update_outgoing=False, last_origin='BOT'):
     conn = sqlite3.connect(DB_PATH, timeout=30)
@@ -2669,7 +2682,12 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
         _send(jid, inst_name, "Tenemos mucho tráfico de mensajes en este momento, por favor espere que en breve se le responderá")
 
     try:
-        logger.info(f" [PROC-START] Hilo iniciado para {phone} en {inst_name}. Body: {body[:30]}")
+        body_str = str(body or "")
+        body_l = body_str.strip().lower()
+        import unicodedata
+        body_norm = unicodedata.normalize('NFKD', body_str).encode('ASCII', 'ignore').decode('utf-8').lower()
+
+        logger.info(f" [PROC-START] Hilo iniciado para {phone} en {inst_name}. Body: {body_str[:30]}")
         # 1. Normalización y Configuración
         inst_name = inst_name.replace("@", "")
 
@@ -2757,6 +2775,22 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                 if row_tmp: company_id = row_tmp[0]
                 conn_tmp.close()
             except: pass
+
+            if not company_id:
+                try:
+                    conn_pr = sqlite3.connect(r'c:\SaaSIA\backend\prisma\dev.db', timeout=5)
+                    c_pr = conn_pr.cursor()
+                    c_pr.execute("SELECT company_id FROM channels WHERE instance_name=? OR bot_name=?", (inst_name, inst_name))
+                    row_pr = c_pr.fetchone()
+                    if row_pr: company_id = row_pr[0]
+                    conn_pr.close()
+                except: pass
+
+            if not company_id:
+                inst_l = inst_name.lower()
+                if "iabox" in inst_l or "virtual" in inst_l: company_id = 3
+                elif "colab" in inst_l or "global" in inst_l: company_id = 2
+                elif "canes" in inst_l: company_id = 1
 
             if company_id:
                 conf_c = os.path.join(CONFIG_DIR, f"company_{company_id}", "configs")
@@ -3048,23 +3082,286 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                 ndata = current_node.get('data', {})
 
                 if ntype == 'identity':
-                    if "CONFIRMING:" not in session_ctx:
-                        name_clean = body.replace("[NOTA DE VOZ]:", "").replace("me llamo", "").replace("soy", "").strip().title()
-                        update_session(phone, inst_name, summary="CONFIRMING:" + name_clean, name=name_clean)
-                        _send(jid, inst_name, "Gracias " + name_clean + ", es correcto? (SI/NO)")
-                        processing_count -= 1; return
-                    else:
-                        name_stored = session_ctx.replace("CONFIRMING:", "").strip()
-                        if any(x in body.upper() for x in ["SI", "OK", "CORRECTO", "DALE", "CLARO"]):
-                            new_state = next_node_map.get(state)
-                            update_session(phone, inst_name, summary="", name=name_stored)
+                    req_fields = ndata.get('required_fields', [])
+                    if company_id == 3 or req_fields:
+                        # Modo de captura completa de datos (Nombre, DNI, Email, Teléfono)
+                        has_name = bool(cur_name and cur_name != 'Cliente Nuevo' and not cur_name.startswith('549') and cur_name != 'Cliente IABox')
+                        has_dni = False
+                        has_email = False
+                        try:
+                            conn_chk = sqlite3.connect(DB_PATH, timeout=5)
+                            c_chk = conn_chk.cursor()
+                            c_chk.execute("SELECT name, dni, email, phone FROM contacts_agenda WHERE phone=?", (phone,))
+                            ag_r = c_chk.fetchone()
+                            conn_chk.close()
+                            if ag_r:
+                                if not has_name and ag_r[0] and ag_r[0] != 'Cliente Nuevo' and ag_r[0] != 'Cliente IABox':
+                                    has_name = True
+                                    cur_name = ag_r[0]
+                                if ag_r[1]: has_dni = True
+                                if ag_r[2]: has_email = True
+                        except: pass
+
+                        body_l = body.strip().lower()
+                        is_greeting = body_l in ["hola", "buenas", "buen dia", "buen día", "buenos dias", "buenos días", "buenas tardes", "buenas noches", "hola!", "hola buenas", "hola buen dia", "hola buenas tardes", "que tal", "hola que tal"]
+
+                        if not (has_name and has_dni and has_email) and "DATA_COMPLETED:YES" not in session_ctx:
+                            if "ASKED_DATA:YES" not in session_ctx or is_greeting:
+                                prompt_msg = ndata.get('prompt_text', "¡Hola! Bienvenido a *IA Box* (Estados Unidos 2339, CABA). Para poder brindarte un asesoramiento personalizado y verificar disponibilidad, por favor indícanos:\n1. Nombre y Apellido\n2. DNI o CUIT\n3. Correo Electrónico\n4. Teléfono de contacto")
+                                update_session(phone, inst_name, summary=session_ctx.replace("|ASKED_DATA:YES", "") + "|ASKED_DATA:YES")
+                                _send(jid, inst_name, prompt_msg)
+                                processing_count -= 1; return
+                            else:
+                                # El cliente respondió con sus datos: extraer con regex
+                                email_m = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', body)
+                                dni_m = re.search(r'\b(\d{7,11})\b', body.replace(".", "").replace("-", ""))
+                                ext_email = email_m.group(0) if email_m else ""
+                                ext_dni = dni_m.group(1) if dni_m else ""
+                                
+                                clean_name = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '', body)
+                                clean_name = re.sub(r'\b\d{7,11}\b', '', clean_name)
+                                clean_name = re.sub(r'dni|cuit|email|mail|telefono|tel|nombre|es|soy|mi|hola', '', clean_name, flags=re.IGNORECASE).strip()
+                                ext_name = clean_name.split("\n")[0].strip().title() if clean_name else (cur_name or "Cliente IABox")
+                                if len(ext_name) < 3 or len(ext_name) > 40:
+                                    ext_name = cur_name or "Cliente IABox"
+
+                                # Guardar en agenda
+                                try:
+                                    conn_sav = sqlite3.connect(DB_PATH, timeout=10)
+                                    c_sav = conn_sav.cursor()
+                                    c_sav.execute("""
+                                        INSERT INTO contacts_agenda (name, phone, email, dni, company_id, origin, last_channel)
+                                        VALUES (?, ?, ?, ?, ?, 'CHAT_BOT', 'whatsapp')
+                                        ON CONFLICT(phone) DO UPDATE SET
+                                            name=COALESCE(NULLIF(excluded.name, ''), contacts_agenda.name),
+                                            email=COALESCE(NULLIF(excluded.email, ''), contacts_agenda.email),
+                                            dni=COALESCE(NULLIF(excluded.dni, ''), contacts_agenda.dni),
+                                            company_id=COALESCE(excluded.company_id, contacts_agenda.company_id)
+                                    """, (ext_name, phone, ext_email, ext_dni, company_id))
+                                    conn_sav.commit()
+                                    conn_sav.close()
+                                except Exception as e_sav:
+                                    logger.error(f"[SAVE-CONTACT ERROR] {e_sav}")
+
+                                session_ctx = session_ctx.replace("|ASKED_DATA:YES", "") + f"|DATA_COMPLETED:YES|NAME:{ext_name}|DNI:{ext_dni}|EMAIL:{ext_email}"
+                                update_session(phone, inst_name, summary=session_ctx, name=ext_name)
+                                cur_name = ext_name
+                                state = next_node_map.get(state, state)
+                                current_node = nodes.get(state)
+
+                                # Si el mensaje solo contenía los datos sin consulta de producto, confirmar recepción
+                                if not any(w in body.lower() for w in ["oficina", "box", "baulera", "precio", "cuanto", "cuánto", "costo", "alquiler", "fiscal", "deposito", "depósito", "combo"]):
+                                    conf_msg = f"¡Muchas gracias {ext_name}! Tus datos fueron registrados con éxito. 📋✅\n\n¿En qué servicio o espacio de IA Box estás interesado? Contamos con Bauleras desde 1,5 m², Boxes estándar y grandes (12 a 28 m²), Depósitos paletizables y Oficina Virtual (Domicilio Fiscal)."
+                                    _send(jid, inst_name, conf_msg)
+                                    try: cache_add_message(phone, inst_name, 'assistant', conf_msg)
+                                    except: pass
+                                    processing_count -= 1; return
+                        elif is_greeting:
+                            greet_msg = f"¡Hola {cur_name or ''}! ¿En qué podemos ayudarte hoy en *IA Box*? Contamos con Bauleras, Boxes (12 a 28 m²), Depósitos y Oficina Virtual (Domicilio Fiscal)."
+                            _send(jid, inst_name, greet_msg)
+                            processing_count -= 1; return
                         else:
-                            update_session(phone, inst_name, summary="")
-                            _send(jid, inst_name, "Por favor, decime tu nombre nuevamente.")
+                            state = next_node_map.get(state, state)
+                            current_node = nodes.get(state)
+                    else:
+                        if "CONFIRMING:" not in session_ctx:
+                            name_clean = body.replace("[NOTA DE VOZ]:", "").replace("me llamo", "").replace("soy", "").strip().title()
+                            update_session(phone, inst_name, summary="CONFIRMING:" + name_clean, name=name_clean)
+                            _send(jid, inst_name, "Gracias " + name_clean + ", es correcto? (SI/NO)")
+                            processing_count -= 1; return
+                        else:
+                            name_stored = session_ctx.replace("CONFIRMING:", "").strip()
+                            if any(x in body.upper() for x in ["SI", "OK", "CORRECTO", "DALE", "CLARO"]):
+                                state = next_node_map.get(state, state)
+                                current_node = nodes.get(state)
+                                update_session(phone, inst_name, summary="", name=name_stored)
+                            else:
+                                update_session(phone, inst_name, summary="")
+                                _send(jid, inst_name, "Por favor, decime tu nombre nuevamente.")
+                                processing_count -= 1; return
+
+                if current_node and current_node.get('type') == 'rag':
+                    ntype = 'rag'
+                    ndata = current_node.get('data', {})
+                    history_data = cache_get_history(phone, inst_name, limit=8)
+
+                    # --- LÓGICA ESPECÍFICA IABOX (EMPRESA 3) ---
+                    if company_id == 3:
+                        # 1. ¿Consulta sobre CÓMO SE CONTRATA / REQUISITOS / PROCESO?
+                        is_asking_how_to_contract = any(k in body_norm for k in [
+                            "como se contrata", "como es la contratacion", "como contrato", "como alquilo",
+                            "requisitos", "que necesito", "que se necesita", "pasos para", "como es el proceso",
+                            "forma de pago", "factura", "facturacion", "medio de pago", "contratar el servicio"
+                        ])
+                        
+                        if is_asking_how_to_contract:
+                            prompt_contract = (
+                                f"{ia_prompt}\n\n"
+                                f"El cliente consulta sobre CÓMO CONTRATAR EL SERVICIO / REQUISITOS EN IA BOX.\n"
+                                f"Explica de forma clara, cordial y profesional los 3 sencillos pasos de contratación:\n"
+                                f"1. *Envío de Datos*: DNI o CUIT del titular/empresa y constancia de inscripción (si es persona jurídica o monotributista).\n"
+                                f"2. *Firma y Abono*: Firma digital o presencial del contrato de locación temporal y abono del primer mes (emitimos Factura A para empresas e IVA discriminado, y Factura B).\n"
+                                f"3. *Habilitación Inmediata*: Alta oficial del domicilio fiscal/comercial o entrega de acceso seguro 24/7 con portón automático al predio en Estados Unidos 2339 (CABA).\n\n"
+                                f"FINALIZA preguntando: '¿Deseas que un asesor humano te envíe el contrato y coordine la documentación ahora mismo?'"
+                            )
+                            res = query_ollama(body, prompt_contract, inst_name, history=history_data)
+                            _send(jid, inst_name, res)
+                            try: cache_add_message(phone, inst_name, 'assistant', res)
+                            except: pass
                             processing_count -= 1; return
 
-                elif ntype == 'rag':
-                    history_data = cache_get_history(phone, inst_name, limit=8)
+                        # 2. ¿El cliente está respondiendo afirmativamente para hablar con un asesor humano / coordinar visita / contratar directamente?
+                        is_accepting_advisor = any(w in body_norm for w in ["si", "dale", "ok", "quiero contratar", "interesa contratar", "asesor", "humano", "visita", "reservar", "coordinar", "avanzar", "pasame", "comunicate", "contacto", "bueno", "perfecto"])
+                        has_product_offered = ("PRODUCT:" in session_ctx or "PRECIO:" in session_ctx or "OFICINA VIRTUAL" in session_ctx or "Oficina Virtual" in session_ctx)
+                        is_asking_new_question = any(w in body_norm for w in ["cuanto", "precio", "medida", "que sale", "donde", "horario", "como", "que incluye"])
+
+                        if (has_product_offered or any(w in body_norm for w in ["asesor", "humano", "visita"])) and is_accepting_advisor and not is_asking_new_question:
+                            # Avanzamos directamente al nodo de derivación humana / aprobación
+                            state = next_node_map.get(state, state)
+                            current_node = nodes.get(state)
+                            
+                            # --- CREACIÓN INMEDIATA DE TICKET Y NOTIFICACIÓN AL ASESOR (1124013981) ---
+                            resumen_ia = ""
+                            try:
+                                hist_resumen = cache_get_history(phone, inst_name, limit=8)
+                                hist_txt = "\n".join([f"{m['role'].upper()}: {m['content'][:100]}" for m in hist_resumen])
+                                resumen_ia = query_ollama(hist_txt, "Resume en 3 lineas la consulta del cliente de IA Box: producto de interes, datos de contacto y estado.", inst_name)
+                            except: resumen_ia = f"Cliente interesado en servicios de IA Box. Consulta: {body}"
+
+                            ticket_id = None
+                            try:
+                                import sqlite3 as _sq3
+                                conn_tk = _sq3.connect(DB_PATH, timeout=30)
+                                c_tk = conn_tk.cursor()
+                                c_tk.execute("INSERT INTO tickets (phone, instance, summary, status, company_id, summary_ia, a3) VALUES (?, ?, ?, 'pending_auth', ?, ?, 1)", 
+                                             (phone, inst_name, session_ctx[:500], company_id, resumen_ia))
+                                c_tk.execute("UPDATE sessions SET pending_handoff=1, state=? WHERE phone=? AND instance=?", (state, phone, inst_name))
+                                conn_tk.commit()
+                                ticket_id = c_tk.lastrowid
+                                conn_tk.close()
+                                logger.info(f"[TICKET-IABOX] Creado #{ticket_id} para {phone} y marcado pending_handoff=1")
+                            except Exception as e_tk: logger.error(f"[TICKET-IABOX ERROR] {e_tk}")
+
+                            ticket_num = ticket_id or "N/A"
+                            prod_m = re.search(r'PRODUCT:([^|]+)', session_ctx)
+                            prc_m = re.search(r'PRECIO:([^|]+)', session_ctx)
+                            dni_m = re.search(r'DNI:([^|]+)', session_ctx)
+                            email_m = re.search(r'EMAIL:([^|]+)', session_ctx)
+                            
+                            dni_val = dni_m.group(1).strip() if dni_m else ""
+                            email_val = email_m.group(1).strip() if email_m else ""
+                            try:
+                                conn_ag = sqlite3.connect(DB_PATH, timeout=5)
+                                c_ag = conn_ag.cursor()
+                                c_ag.execute("SELECT name, dni, email FROM contacts_agenda WHERE phone=?", (phone,))
+                                ag_row = c_ag.fetchone()
+                                conn_ag.close()
+                                if ag_row:
+                                    if not dni_val and ag_row[1]: dni_val = ag_row[1]
+                                    if not email_val and ag_row[2]: email_val = ag_row[2]
+                            except: pass
+                            
+                            prod_str = prod_m.group(1).strip() if prod_m else "Oficina Virtual / Espacios IA Box"
+                            precio_str = prc_m.group(1).strip() if prc_m else "$99.000 + IVA"
+                            
+                            ticket_details_iabox = (
+                                f"🔔 *NUEVO TICKET IABOX - DERIVACIÓN A ASESOR HUMANO*\n\n"
+                                f"1- *Nro de ticket:* #{ticket_num}\n"
+                                f"2- *Cliente:* {cur_name or phone} (Tel: {phone})\n"
+                                f"   - *DNI/CUIT:* {dni_val or 'No especificado'}\n"
+                                f"   - *Email:* {email_val or 'No especificado'}\n"
+                                f"   - *Producto consultado:* {prod_str}\n"
+                                f"3- *Resumen del chat (por IA):*\n{resumen_ia}\n"
+                                f"4- *Cotización:* {precio_str}"
+                            )
+                            client_phone_clean = normalize_argentina_wa_phone(phone)
+                            import urllib.parse
+                            encoded_text = urllib.parse.quote(ticket_details_iabox)
+                            wa_link = f"https://wa.me/{client_phone_clean}?text={encoded_text}"
+                            ticket_msg = f"{ticket_details_iabox}\n\n5- *Link directo a WhatsApp:*\n{wa_link}"
+                            
+                            notif_advisor = "1124013981"
+                            notif_phone_normalized = normalize_argentina_wa_phone(notif_advisor)
+                            _send(f"{notif_phone_normalized}@s.whatsapp.net", inst_name, ticket_msg)
+                            logger.info(f"[TICKET-IABOX] Ticket #{ticket_num} enviado a la línea oficial {notif_phone_normalized}")
+                            
+                            _send(jid, inst_name, "¡Excelente! Ya registramos tu pedido. Un asesor comercial de IA Box se pondrá en contacto contigo a la brevedad a este número para formalizar la contratación y responder cualquier duda. ¡Muchas gracias por elegirnos!")
+                            processing_count -= 1; return
+                        else:
+                            # 3. ¿Consulta por Oficina Virtual / Domicilio Fiscal?
+                            is_vo = any(k in body_norm for k in ["oficina virtual", "domicilio fiscal", "fiscal", "correspondencia", "arca", "afip", "domicilio comercial", "virtual", "domicilio"])
+                            if is_vo:
+                                vo_img = "promo-domicilio-fiscal-recepcion-correspondencia-precios.png"
+                                prompt_vo = (
+                                    f"{ia_prompt}\n\n"
+                                    f"El cliente consulta por OFICINA VIRTUAL / DOMICILIO FISCAL.\n"
+                                    f"1. Detalla el Plan E1 ($99.000 ARS neto + IVA por mes): Domicilio fiscal legal habilitado para AFIP/ARCA y bancos, presencia comercial en Estados Unidos 2339 (CABA), recepción y aviso instantáneo de correspondencia y encomiendas, gestión 100% digital.\n"
+                                    f"2. FINALIZA OBLIGATORIAMENTE preguntando: '¿Te interesa contratar el servicio de Oficina Virtual o que te atienda un asesor humano para coordinar la documentación?'\n"
+                                    f"3. OBLIGATORIO: Agrega al final de tu respuesta el comando exacto: __MULTIMEDIA__: {vo_img}"
+                                )
+                                res = query_ollama(body, prompt_vo, inst_name, history=history_data)
+                                _send(jid, inst_name, res)
+                                try: cache_add_message(phone, inst_name, 'assistant', res)
+                                except: pass
+                                update_session(phone, inst_name, state=state, summary=session_ctx + "|PRODUCT:Oficina Virtual|PRECIO:$99.000 + IVA")
+                                processing_count -= 1; return
+                            else:
+                                # 4. Consulta de Boxes, Bauleras y Depósitos
+                                prod_map_iabox = {
+                                    "bici": ("Bici-Box", "bici-box.png", "Consultar"),
+                                    "mini": ("Baulera Mini (1,5 m²)", "baulera-mini.png", "$78.900 (+ IVA) · Promo 3 meses: $60.692"),
+                                    "mediana": ("Baulera Mediana (3,0 m²)", "baulera-mediana.png", "$144.000 (+ IVA) · Promo 3 meses: $110.769"),
+                                    "estandar plus": ("Box Estándar Plus (14 m²)", "box-estandar-plus.png", "$720.000 (+ IVA) · Promo 3 meses: $553.846"),
+                                    "estándar plus": ("Box Estándar Plus (14 m²)", "box-estandar-plus.png", "$720.000 (+ IVA) · Promo 3 meses: $553.846"),
+                                    "estandar": ("Box Estándar (12 m²)", "box-estandar.png", "$650.000 (+ IVA) · Promo 3 meses: $500.000"),
+                                    "estándar": ("Box Estándar (12 m²)", "box-estandar.png", "$650.000 (+ IVA) · Promo 3 meses: $500.000"),
+                                    "intermedio": ("Box Intermedio (16 m²)", "box-intermedio.png", "$790.000 (+ IVA) · Promo 3 meses: $607.692"),
+                                    "plus": ("Box Plus (24 m²)", "box-plus.png", "$1.200.000 (+ IVA) · Promo 3 meses: $923.076"),
+                                    "grande": ("Box Grande (28 m²)", "box-grande.png", "$1.350.000 (+ IVA) · Promo 3 meses: $1.038.461"),
+                                    "paletizable": ("Depósito Paletizable (40 m²)", "deposito-paletizable.png", "$1.850.000 (+ IVA) · Promo 3 meses: $1.423.076"),
+                                    "deposito": ("Depósito Paletizable (40 m²)", "deposito-paletizable.png", "$1.850.000 (+ IVA) · Promo 3 meses: $1.423.076"),
+                                    "depósito": ("Depósito Paletizable (40 m²)", "deposito-paletizable.png", "$1.850.000 (+ IVA) · Promo 3 meses: $1.423.076"),
+                                    "combo": ("Oficina + Box Combo Premium (48 m²)", "oficina-box-combo-premium.png", "$2.100.000 (+ IVA) · Promo 3 meses: $1.615.384")
+                                }
+                                matched_name = None
+                                matched_img = None
+                                matched_prc = None
+                                for k_p, (p_n, p_i, p_p) in prod_map_iabox.items():
+                                    if k_p in body_norm or k_p in body_l:
+                                        matched_name = p_n
+                                        matched_img = p_i
+                                        matched_prc = p_p
+                                        break
+                                
+                                if matched_name:
+                                    prompt_prod = (
+                                        f"{ia_prompt}\n\n"
+                                        f"El cliente consulta por: {matched_name}.\n"
+                                        f"Precio oficial y Promo 3 meses: {matched_prc}.\n"
+                                        f"1. Detalla características del espacio, medidas, seguridad y precio con promo 3 meses (~30% OFF).\n"
+                                        f"2. FINALIZA OBLIGATORIAMENTE preguntando: '¿Te gustaría que te comunique con un asesor humano para coordinar una visita a nuestro predio en Estados Unidos 2339 (CABA) o avanzar con la reserva?'\n"
+                                        f"3. OBLIGATORIO: Agrega al final de tu respuesta el comando exacto: __MULTIMEDIA__: {matched_img}"
+                                    )
+                                    res = query_ollama(body, prompt_prod, inst_name, history=history_data)
+                                    _send(jid, inst_name, res)
+                                    try: cache_add_message(phone, inst_name, 'assistant', res)
+                                    except: pass
+                                    update_session(phone, inst_name, summary=session_ctx + f"|PRODUCT:{matched_name}|PRECIO:{matched_prc}")
+                                    processing_count -= 1; return
+                                else:
+                                    # Consulta general o catálogo
+                                    prompt_gen = (
+                                        f"{ia_prompt}\n\n"
+                                        f"El cliente hace una consulta general sobre espacios de guardado o precios en IA Box.\n"
+                                        f"1. Resume las opciones disponibles (Bauleras desde 1,5 m², Boxes estándar de 12 a 28 m², Depósitos paletizables y Oficina Virtual).\n"
+                                        f"2. Menciona la ubicación en Estados Unidos 2339 CABA, acceso 24/7 y la promo de 3 meses con 30% OFF.\n"
+                                        f"3. Pregunta qué volumen u objetos necesita guardar o si desea hablar con un asesor humano."
+                                    )
+                                    res = query_ollama(body, prompt_gen, inst_name, history=history_data)
+                                    _send(jid, inst_name, res)
+                                    try: cache_add_message(phone, inst_name, 'assistant', res)
+                                    except: pass
+                                    processing_count -= 1; return
 
                     # --- INTERCEPCIÓN TEMPRANA KERNEL IA ---
                     try:
@@ -3432,10 +3729,12 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                     if text_after: _send(jid, inst_name, text_after)
                     new_state = next_node_map.get(state)
 
-                elif ntype == 'approval':
+                if current_node and current_node.get('type') == 'approval':
+                    ntype = 'approval'
+                    ndata = current_node.get('data', {})
                     # --- ENVÍO DE TICKET A3 AL NÚMERO DE NOTIFICACIÓN ---
                     try:
-                        notif_phone = ndata.get('notify_phone', '1136822400')
+                        notif_phone = ndata.get('notify_phone', '1124013981' if company_id == 3 else '1136822400')
                         notif_phone_normalized = normalize_argentina_wa_phone(notif_phone)
                         # Extraer datos del contexto
                         nombre_c = cur_name or phone
@@ -3499,6 +3798,49 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
 
                         ticket_num = ticket_id or "N/A"
 
+                        if company_id == 3:
+                            prod_m = re.search(r'PRODUCT:([^|]+)', session_ctx)
+                            prc_m = re.search(r'PRECIO:([^|]+)', session_ctx)
+                            dni_m = re.search(r'DNI:([^|]+)', session_ctx)
+                            email_m = re.search(r'EMAIL:([^|]+)', session_ctx)
+                            
+                            dni_val = dni_m.group(1).strip() if dni_m else ""
+                            email_val = email_m.group(1).strip() if email_m else ""
+                            try:
+                                conn_ag = sqlite3.connect(DB_PATH, timeout=5)
+                                c_ag = conn_ag.cursor()
+                                c_ag.execute("SELECT name, dni, email FROM contacts_agenda WHERE phone=?", (phone,))
+                                ag_row = c_ag.fetchone()
+                                conn_ag.close()
+                                if ag_row:
+                                    if not dni_val and ag_row[1]: dni_val = ag_row[1]
+                                    if not email_val and ag_row[2]: email_val = ag_row[2]
+                            except: pass
+                            
+                            prod_str = prod_m.group(1).strip() if prod_m else "Consulta General / Espacios"
+                            precio_str = prc_m.group(1).strip() if prc_m else "A coordinar"
+                            
+                            ticket_details_iabox = (
+                                f"🔔 *NUEVO TICKET IABOX - DERIVACIÓN A ASESOR HUMANO*\n\n"
+                                f"1- *Nro de ticket:* #{ticket_num}\n"
+                                f"2- *Cliente:* {nombre_c} (Tel: {phone})\n"
+                                f"   - *DNI/CUIT:* {dni_val or 'No especificado'}\n"
+                                f"   - *Email:* {email_val or 'No especificado'}\n"
+                                f"   - *Producto consultado:* {prod_str}\n"
+                                f"3- *Resumen del chat (por IA):*\n{resumen_ia}\n"
+                                f"4- *Cotización:* {precio_str}"
+                            )
+                            client_phone_clean = normalize_argentina_wa_phone(phone)
+                            import urllib.parse
+                            encoded_text = urllib.parse.quote(ticket_details_iabox)
+                            wa_link = f"https://wa.me/{client_phone_clean}?text={encoded_text}"
+                            
+                            ticket_msg = f"{ticket_details_iabox}\n\n5- *Link directo a WhatsApp:*\n{wa_link}"
+                            _send(f"{notif_phone_normalized}@s.whatsapp.net", inst_name, ticket_msg)
+                            logger.info(f"[TICKET-IABOX] Ticket #{ticket_num} enviado a {notif_phone_normalized}")
+                            _send(jid, inst_name, "¡Excelente! Ya registramos tu consulta y un asesor humano de nuestro equipo de IA Box se pondrá en contacto contigo a la brevedad. ¡Muchas gracias!")
+                            break
+
                         # Generamos los detalles del ticket en el formato exacto de 5 puntos requerido:
                         ticket_details = (
                             f"1- Nro de ticket: #{ticket_num}\n"
@@ -3552,8 +3894,34 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
             import traceback
             open(r"C:\SaaSIA\ai_core\logs\crash.log", "w", encoding="utf-8").write(str(e) + "\n" + traceback.format_exc())
         except: pass
-    finally:    processing_count -= 1
+    finally:
+        processing_count -= 1
 
+def _resolve_file(filename, inst_name=None, company_id=None):
+    search_paths = []
+    if inst_name:
+        search_paths.append(os.path.join(CONFIG_DIR, inst_name, "media", filename))
+        search_paths.append(os.path.join(MEDIA_LIB_DIR, inst_name, filename))
+    if company_id:
+        search_paths.append(os.path.join(CONFIG_DIR, f"company_{company_id}", "knowledge", "general", filename))
+        search_paths.append(os.path.join(CONFIG_DIR, f"company_{company_id}", "media", filename))
+    
+    search_paths.extend([
+        os.path.join(CONFIG_DIR, "company_3", "media", filename),
+        os.path.join(CONFIG_DIR, "company_2", "media", filename),
+        os.path.join(CONFIG_DIR, "company_1", "media", filename),
+        os.path.join(CONFIG_DIR, "ofVirtual", "media", filename),
+        os.path.join(CONFIG_DIR, "colab", "media", filename),
+        os.path.join(CONFIG_DIR, "nico_ventas_wa", "media", filename),
+        os.path.join(CONFIG_DIR, "chatbot_punto_a", "media", filename),
+        os.path.join(r"c:\SaaSIA\IABOX\06_PROMOS", filename),
+        os.path.join(r"c:\SaaSIA\IABOX\02_ASSETS_PRODUCTOS", filename),
+    ])
+    
+    for dp in search_paths:
+        if dp and os.path.exists(dp):
+            return dp
+    return None
 
 def _send(jid, inst, text):
     import re
@@ -3700,8 +4068,8 @@ def webhook():
         logger.info(f" [WEBHOOK-RAW] Data: {json.dumps(data)[:200]}...")
         inst = data.get('instance')
         msg_obj = data.get('data', {})
-        if msg_obj.get('key', {}).get('fromMe'): return "ignore self", 200
         jid = msg_obj.get('key', {}).get('remoteJid', '')
+        if not jid or 'broadcast' in jid or jid.endswith('@g.us'): return "ignore group/broadcast", 200
         phone = jid.split('@')[0] if jid and '@' in jid else jid
         
         # Dedup Persistente
@@ -3750,6 +4118,47 @@ def webhook():
             # Si sigue sin body pero hay algo en m, marcamos como multimedia genérico
             if m: body = "__MULTIMEDIA__"
             else: return "ignore", 200
+
+        body_clean = body.strip().lower() if body else ""
+        is_from_me = bool(msg_obj.get('key', {}).get('fromMe') or data.get('isHumanOperator'))
+
+        # --- DETECCIÓN DE OPERADOR HUMANO (WhatsApp Web / App Móvil / Live Chat) ---
+        if is_from_me:
+            # 1. Comando explícito de apagado: '.' o '*iaoff'
+            if body_clean in ['.', '*iaoff', 'iaoff', '/iaoff', '#iaoff', '!iaoff', '*apagar', 'ia off']:
+                logger.info(f" [HUMAN-TAKEOVER] Comando de apagado ('{body.strip()}') del operador para {phone} ({inst}). Bot desactivado (manual=1).")
+                update_session(phone, inst, manual=1, pending_handoff=1, last_origin='HUMAN', update_outgoing=True)
+                log_message(phone, inst, f"[IA DESACTIVADA POR OPERADOR ({body.strip()})]", "out", origin="HUMAN")
+                return jsonify({"status": "ia_disabled_by_operator", "phone": phone}), 200
+
+            # 2. Comando explícito de encendido: '*iaon'
+            if body_clean in ['*iaon', 'iaon', '/iaon', '#iaon', '!iaon', '*encender', 'ia on']:
+                logger.info(f" [HUMAN-TAKEOVER] Comando de reactivación ('{body.strip()}') del operador para {phone} ({inst}). Bot reactivado (manual=0).")
+                update_session(phone, inst, manual=0, pending_handoff=0, last_origin='HUMAN', update_outgoing=True)
+                log_message(phone, inst, f"[IA REACTIVADA POR OPERADOR ({body.strip()})]", "out", origin="HUMAN")
+                return jsonify({"status": "ia_enabled_by_operator", "phone": phone}), 200
+
+            # 3. Respuesta humana a consulta: Cualquier mensaje que el operador humano envíe apaga el bot para esta conversación
+            if body:
+                logger.info(f" [HUMAN-TAKEOVER] Operador humano respondió a {phone} ({inst}): '{body[:50]}'. Bot desactivado automáticamente (manual=1).")
+                update_session(phone, inst, manual=1, pending_handoff=1, last_origin='HUMAN', update_outgoing=True)
+                log_message(phone, inst, body, "out", origin="HUMAN")
+                cache_add_message(phone, inst, "assistant", body)
+            return jsonify({"status": "human_operator_responded", "phone": phone}), 200
+
+        # --- DETECCIÓN DE COMANDOS DE APAGADO / ENCENDIDO EN MENSAJES ENTRANTES ---
+        if body_clean in ['.', '*iaoff', 'iaoff', '/iaoff', '#iaoff', '!iaoff', '*apagar', 'ia off']:
+            logger.info(f" [HUMAN-TAKEOVER] Comando de apagado recibido en chat {phone} ({inst}): '{body.strip()}'. Bot desactivado (manual=1).")
+            update_session(phone, inst, manual=1, pending_handoff=1, last_origin='HUMAN', update_incoming=True)
+            log_message(phone, inst, body, "in")
+            return jsonify({"status": "ia_disabled_by_command", "phone": phone}), 200
+
+        if body_clean in ['*iaon', 'iaon', '/iaon', '#iaon', '!iaon', '*encender', 'ia on']:
+            logger.info(f" [HUMAN-TAKEOVER] Comando de encendido recibido en chat {phone} ({inst}): '{body.strip()}'. Bot reactivado (manual=0).")
+            update_session(phone, inst, manual=0, pending_handoff=0, last_origin='HUMAN', update_incoming=True)
+            log_message(phone, inst, body, "in")
+            return jsonify({"status": "ia_enabled_by_command", "phone": phone}), 200
+
         logger.info(f" [WEBHOOK] Recibido de {phone} en instancia {inst}: {body[:30]}...")
         
         log_message(phone, inst, body, "in")

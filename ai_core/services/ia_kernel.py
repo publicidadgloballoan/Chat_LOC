@@ -298,13 +298,17 @@ CATÃLOGO COMPLETO:
                 }, timeout=self.timeout_local)
 
                 if r.status_code == 200:
-                    text = r.json().get('message', {}).get('content', '')
+                    res_data = r.json()
+                    text = res_data.get('message', {}).get('content', '')
                     if text:
-                        self._update_stats("Local Ollama", success=1)
+                        toks = res_data.get('prompt_eval_count', 0) + res_data.get('eval_count', 0)
+                        if toks == 0:
+                            toks = (len(str(messages)) + len(text)) // 4
+                        self._update_stats("Local Ollama", tokens=toks, success=1)
                         return {"source": "LOCAL_OLLAMA", "text": text}
                 else:
-                    logger.error(f"Ollama devolviÃ³ cÃ³digo {r.status_code}: {r.text}")
-                    self._update_stats("Local Ollama", fail=1)
+                    logger.error(f"Ollama devolvió código {r.status_code}: {r.text}")
+                    self._update_stats("Local Ollama", tokens=0, fail=1)
 
             except requests.exceptions.Timeout:
                 logger.warning(f"Ollama superÃ³ los {self.timeout_local}s. Intentando Failovers...")

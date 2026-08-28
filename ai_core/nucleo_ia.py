@@ -361,6 +361,7 @@ def cache_get_knowledge(inst_name):
         if "iabox" in inst_l or "virtual" in inst_l: company_id = 3
         elif "colab" in inst_l or "global" in inst_l: company_id = 2
         elif "canes" in inst_l: company_id = 1
+        elif "mkt" in inst_l or "comunicacion" in inst_l: company_id = 4
 
     # Si hay una empresa asociada, cargar su conocimiento global
     if company_id:
@@ -633,6 +634,14 @@ def init_db():
             c.execute("ALTER TABLE sessions ADD COLUMN last_origin TEXT DEFAULT 'BOT'")
         except Exception as e:
             logger.error(f" [DB-MIGRATE] Error agregando last_origin a sessions: {e}")
+
+    try:
+        c.execute("SELECT last_channel FROM sessions LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            c.execute("ALTER TABLE sessions ADD COLUMN last_channel TEXT DEFAULT 'WA'")
+        except Exception as e:
+            logger.error(f" [DB-MIGRATE] Error agregando last_channel a sessions: {e}")
     
     c.execute('''CREATE TABLE IF NOT EXISTS logs
                  (phone TEXT, instance TEXT, message TEXT, direction TEXT, 
@@ -956,8 +965,8 @@ _ia_cache = TTLCache(maxsize=2000, ttl=3600)
 
 def query_ollama(user_msg, system_prompt="Eres un asistente útil.", inst_name="default", history=None):
     try:
-        # Añadimos la regla de no enlaces que ya existía
-        system_prompt += "\n\nCRITICAL: DO NOT SEND ANY LINKS OR URLs. If you mention photos, just say they are being sent. NEVER invent Imgur or similar links."
+        # Permite enviar enlaces oficiales si figuran en el conocimiento
+        system_prompt += "\n\nCRITICAL: You may include official website/social links (like https://colaboratium.com.ar/ or https://www.instagram.com/colaboratium/) ONLY if explicitly listed in the official knowledge base. NEVER invent fake Imgur, bitly or third-party links."
         
         # Cache Key calculation
         hist_str = json.dumps(history, sort_keys=True) if history else ""
@@ -1236,12 +1245,184 @@ def handle_api_data():
     data = request.get_json(silent=True) or {}
     action = data.get('action') or request.args.get('action')
 
+    if action == 'get_wasender_status':
+        try:
+            cfg_file = r"c:\SaaSIA\ai_core\config\wasender_config.json"
+            cfg = {"headless": False, "instance_name": "mkt_colab", "status": "stopped"}
+            if os.path.exists(cfg_file):
+                with open(cfg_file, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            return jsonify({"success": True, "config": cfg})
+        except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+    if action == 'toggle_wasender_headless':
+        try:
+            cfg_file = r"c:\SaaSIA\ai_core\config\wasender_config.json"
+            cfg = {"headless": False, "instance_name": "mkt_colab", "status": "stopped"}
+            if os.path.exists(cfg_file):
+                with open(cfg_file, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            cfg["headless"] = not cfg.get("headless", False)
+            os.makedirs(os.path.dirname(cfg_file), exist_ok=True)
+            with open(cfg_file, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+            return jsonify({"success": True, "config": cfg})
+        except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+    if action == 'launch_wasender':
+        try:
+            import subprocess
+            cfg_file = r"c:\SaaSIA\ai_core\config\wasender_config.json"
+            cfg = {"headless": False, "instance_name": "mkt_colab", "status": "stopped"}
+            if os.path.exists(cfg_file):
+                with open(cfg_file, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            
+            cmd = [sys.executable, r"c:\SaaSIA\ai_core\wasender_engine.py", "--visible"]
+            creation_flag = subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
+            proc = subprocess.Popen(cmd, creationflags=creation_flag)
+            cfg["status"] = "running"
+            with open(cfg_file, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+            return jsonify({"success": True, "message": f"Motor Chromium lanzado en tu pantalla (Modo Debug Visible)", "pid": proc.pid})
+        except Exception as e: return jsonify({"success": False, "error": str(e)})
+
     if request.method == 'GET' and action:
         if action == 'get_mkt_logs':
             try:
-                c.execute("SELECT id, campaign_id, contact_name, channel, status, message, created_at FROM mkt_execution_logs ORDER BY created_at DESC LIMIT 50")
-                logs = [{"id": r[0], "campId": r[1], "name": r[2], "channel": r[3], "status": r[4], "msg": r[5], "time": r[6]} for r in c.fetchall()]
-                return jsonify({"success": True, "logs": logs})
+                comp_id = request.args.get('companyId')
+                query_logs = """
+                    SELECT l.id, l.campaign_id, 
+                           COALESCE(ca.name, CASE WHEN l.contact_name LIKE 'Candidato%' OR l.contact_name GLOB '*[0-9]*' THEN 'candidato_sin_nombre' ELSE l.contact_name END) as clean_name,
+                           l.channel, l.status, l.message, l.created_at, camp.name,
+                           COALESCE(ca.phone, (SELECT phone FROM contacts_agenda WHERE name = l.contact_name LIMIT 1), '') as clean_phone
+                    FROM mkt_execution_logs l
+                    LEFT JOIN mkt_campaigns camp ON l.campaign_id = camp.id
+                    LEFT JOIN contacts_agenda ca ON (ca.name = l.contact_name OR ca.phone LIKE '%' || l.contact_name || '%')
+                    {WHERE_CLAUSE}
+                    GROUP BY l.id
+                    ORDER BY l.created_at DESC LIMIT 100
+                """
+                if comp_id:
+                    c.execute(query_logs.replace("{WHERE_CLAUSE}", "WHERE camp.company_id = ? OR camp.company_id IS NULL"), (comp_id,))
+                else:
+                    c.execute(query_logs.replace("{WHERE_CLAUSE}", ""))
+                logs = [{"id": r[0], "campId": r[1], "name": r[2], "channel": r[3], "status": r[4], "msg": r[5], "time": r[6], "campaign": r[7], "phone": r[8]} for r in c.fetchall()]
+
+                c.execute("SELECT COUNT(DISTINCT contact_name) FROM mkt_execution_logs WHERE status='sent'")
+                impacted_cnt = c.fetchone()[0] or 0
+
+                c.execute("""
+                    SELECT COUNT(DISTINCT phone) FROM (
+                        SELECT phone FROM tickets
+                        UNION
+                        SELECT phone FROM sessions WHERE pending_handoff=1 OR manual=1 OR last_origin='CLIENTE' OR last_incoming_at IS NOT NULL
+                        UNION
+                        SELECT phone FROM contacts_agenda WHERE group_name='Asesor_desde_MKT' OR origin='MKT_CAMPAIGN'
+                    ) WHERE phone NOT IN ('status', 'mkt_colab', 'colab', '5491178255239', '5491124737437')
+                """)
+                responded_cnt = c.fetchone()[0] or 0
+
+                c.execute("""
+                    SELECT COUNT(DISTINCT phone) FROM (
+                        SELECT phone FROM tickets
+                        UNION
+                        SELECT phone FROM contacts_agenda WHERE group_name='Asesor_desde_MKT' OR origin='MKT_CAMPAIGN'
+                    ) WHERE phone NOT IN ('status', 'mkt_colab', 'colab', '5491178255239', '5491124737437')
+                """)
+                derived_cnt = c.fetchone()[0] or 0
+
+                return jsonify({
+                    "success": True, 
+                    "logs": logs, 
+                    "total_impacted": impacted_cnt, 
+                    "total_responded": responded_cnt,
+                    "total_derived": derived_cnt,
+                    "totalImpacted": impacted_cnt,
+                    "totalResponded": responded_cnt,
+                    "totalDerived": derived_cnt
+                })
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+        if action == 'get_wasender_status':
+            try:
+                cfg_file = r"c:\SaaSIA\ai_core\config\wasender_config.json"
+                cfg = {"headless": False, "instance_name": "mkt_colab", "status": "stopped"}
+                if os.path.exists(cfg_file):
+                    with open(cfg_file, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                return jsonify({"success": True, "config": cfg})
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+        if action == 'toggle_wasender_headless':
+            try:
+                cfg_file = r"c:\SaaSIA\ai_core\config\wasender_config.json"
+                cfg = {"headless": False, "instance_name": "mkt_colab", "status": "stopped"}
+                if os.path.exists(cfg_file):
+                    with open(cfg_file, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                cfg["headless"] = not cfg.get("headless", False)
+                os.makedirs(os.path.dirname(cfg_file), exist_ok=True)
+                with open(cfg_file, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, indent=2, ensure_ascii=False)
+                return jsonify({"success": True, "config": cfg})
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+        if action == 'launch_wasender':
+            try:
+                import subprocess
+                cfg_file = r"c:\SaaSIA\ai_core\config\wasender_config.json"
+                cfg = {"headless": False, "instance_name": "mkt_colab", "status": "stopped"}
+                if os.path.exists(cfg_file):
+                    with open(cfg_file, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                
+                flag = "--headless" if cfg.get("headless", False) else "--visible"
+                cmd = [sys.executable, r"c:\SaaSIA\ai_core\wasender_engine.py", flag]
+                creation_flag = subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
+                proc = subprocess.Popen(cmd, creationflags=creation_flag)
+                cfg["status"] = "running"
+                with open(cfg_file, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, indent=2, ensure_ascii=False)
+                return jsonify({"success": True, "message": f"WASender lanzado en modo {'silencioso' if cfg.get('headless') else 'debug (visible)'}", "pid": proc.pid})
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+        if action == 'get_mkt_campaigns':
+            try:
+                comp_id = request.args.get('companyId')
+                query = """
+                    SELECT c.id, c.name, 
+                           CASE 
+                               WHEN (SELECT COUNT(*) FROM mkt_execution_logs WHERE campaign_id=c.id AND status='sent') >= (SELECT COUNT(*) FROM mkt_contacts WHERE campaign_id=c.id) AND (SELECT COUNT(*) FROM mkt_contacts WHERE campaign_id=c.id) > 0 THEN 'completed' 
+                               ELSE c.status 
+                           END as status, 
+                           c.template, c.created_at,
+                           COALESCE((SELECT COUNT(*) FROM mkt_contacts WHERE campaign_id=c.id), 150) as total_contacts,
+                           (SELECT COUNT(*) FROM mkt_execution_logs WHERE campaign_id=c.id AND status='sent') as sent_contacts,
+                           COALESCE((SELECT COUNT(*) FROM mkt_contacts WHERE campaign_id=c.id), 150) - (SELECT COUNT(*) FROM mkt_execution_logs WHERE campaign_id=c.id AND status='sent') as pending_contacts
+                    FROM mkt_campaigns c
+                    {WHERE_CLAUSE}
+                    ORDER BY c.id DESC
+                """
+                if comp_id:
+                    c.execute(query.replace("{WHERE_CLAUSE}", "WHERE c.company_id = ?"), (comp_id,))
+                else:
+                    c.execute(query.replace("{WHERE_CLAUSE}", ""))
+                campaigns = [{"id": r[0], "name": r[1], "status": r[2], "template": r[3], "createdAt": r[4], "total": r[5], "sent": r[6], "pending": max(0, r[7])} for r in c.fetchall()]
+                return jsonify({"success": True, "campaigns": campaigns})
+            except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+        if action == 'toggle_campaign_status':
+            try:
+                camp_id = data.get('campaignId') or request.args.get('campaignId')
+                new_status = data.get('status') or request.args.get('status')
+                if camp_id and new_status:
+                    if new_status == 'active':
+                        c.execute("UPDATE mkt_campaigns SET status='paused' WHERE status != 'completed'")
+                    c.execute("UPDATE mkt_campaigns SET status=? WHERE id=?", (new_status, camp_id))
+                    conn.commit()
+                    return jsonify({"success": True, "campaignId": camp_id, "status": new_status})
+                return jsonify({"success": False, "error": "campaignId and status required"})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
 
         if action == 'get_dash_state':
@@ -2677,7 +2858,36 @@ def rebuild_knowledge(inst_name):
 def process_ia_async(jid, body, phone, inst_name, msg_data):
     global processing_count
     processing_count += 1
-    
+
+    def _send(target_jid, instance, message_text):
+        try:
+            clean_num = re.sub(r'\D', '', str(target_jid).split('@')[0])
+            if clean_num.startswith('54') and not clean_num.startswith('549') and len(clean_num) == 12:
+                clean_num = '549' + clean_num[2:]
+            
+            target_number = f"{clean_num}@s.whatsapp.net" if "@" not in str(target_jid) else str(target_jid)
+            if target_number.endswith("@lid") and clean_num and len(clean_num) >= 10:
+                target_number = f"{clean_num}@s.whatsapp.net"
+
+            active_inst = instance if instance else 'mkt_colab'
+
+            payload = {"number": target_number, "text": message_text, "delay": 1000}
+            res = requests.post(
+                f"{EVO_URL}/message/sendText/{active_inst}", 
+                headers={"apikey": EVO_API_KEY}, 
+                json=payload, 
+                timeout=15
+            )
+
+            logger.info(f" [_SEND WA] Enviado a {target_number} via {active_inst} (Status: {res.status_code})")
+            try:
+                log_message(clean_num or phone, active_inst, message_text, "out", origin='BOT')
+            except: pass
+            return res
+        except Exception as se:
+            logger.error(f" [_SEND WA ERROR] Error al enviar a {target_jid}: {se}")
+            return None
+
     if processing_count > 15:
         _send(jid, inst_name, "Tenemos mucho tráfico de mensajes en este momento, por favor espere que en breve se le responderá")
 
@@ -2690,6 +2900,51 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
         logger.info(f" [PROC-START] Hilo iniciado para {phone} en {inst_name}. Body: {body_str[:30]}")
         # 1. Normalización y Configuración
         inst_name = inst_name.replace("@", "")
+
+        # --- INTERCEPTOR DE NOTIFICACIONES MKT COLABORATIUM ---
+        if "NUEVO INTERESADO RED DE ASESORES" in body_str or "NUEVO INTERESADO" in body_str:
+            logger.info(f" [MKT-REFERRAL-RECV] Recibida notificación de lead en {inst_name}. Guardando en agenda CRM 'Asesor_desde_MKT' y omitiendo respuesta de bot.")
+            try:
+                m_name = re.search(r'\*Nombre\*:\s*([^\n]+)', body_str)
+                m_phone = re.search(r'\*Teléfono\*:\s*\+?(\d+)', body_str)
+                m_email = re.search(r'\*Email\*:\s*([^\n]+)', body_str)
+                m_zona = re.search(r'\*Zona\*:\s*([^\n]+)', body_str)
+                m_rol = re.search(r'\*Rol\*:\s*([^\n]+)', body_str)
+                m_dni = re.search(r'\*DNI\*:\s*([^\n]+)', body_str)
+                m_url = re.search(r'\*Perfil\*:\s*([^\n]+)', body_str)
+                
+                cand_name = m_name.group(1).strip() if m_name else "Candidato MKT"
+                cand_phone = m_phone.group(1).strip() if m_phone else phone
+                cand_email = m_email.group(1).strip() if (m_email and "No especificado" not in m_email.group(1)) else ""
+                cand_zona = m_zona.group(1).strip() if m_zona else ""
+                cand_rol = m_rol.group(1).strip() if m_rol else ""
+                cand_dni = m_dni.group(1).strip() if (m_dni and "No especificado" not in m_dni.group(1)) else ""
+                cand_url = m_url.group(1).strip() if (m_url and "Sin enlace" not in m_url.group(1)) else ""
+                
+                meta_json = json.dumps({"rol": cand_rol, "zona": cand_zona, "dni": cand_dni, "url": cand_url, "origin_msg": body_str})
+                
+                conn_ag = sqlite3.connect(DB_PATH, timeout=10)
+                conn_ag.execute("PRAGMA busy_timeout = 30000")
+                c_ag = conn_ag.cursor()
+                c_ag.execute("""
+                    INSERT INTO contacts_agenda (name, phone, email, dni, group_name, company_id, origin, last_channel, metadata)
+                    VALUES (?, ?, ?, ?, 'Asesor_desde_MKT', 2, 'CAMPAÑA_MKT_COLAB', 'whatsapp', ?)
+                    ON CONFLICT(phone) DO UPDATE SET
+                        name=COALESCE(NULLIF(excluded.name, ''), contacts_agenda.name),
+                        email=COALESCE(NULLIF(excluded.email, ''), contacts_agenda.email),
+                        dni=COALESCE(NULLIF(excluded.dni, ''), contacts_agenda.dni),
+                        group_name='Asesor_desde_MKT',
+                        company_id=2,
+                        metadata=excluded.metadata
+                """, (cand_name, cand_phone, cand_email, cand_dni, meta_json))
+                conn_ag.commit()
+                conn_ag.close()
+                logger.info(f" [CRM-AGENDA] Contacto {cand_name} ({cand_phone}) agendado exitosamente en rubro 'Asesor_desde_MKT' para Colaboratium (empresa 2)")
+            except Exception as e_ag:
+                logger.error(f" [CRM-AGENDA ERROR] {e_ag}")
+                
+            processing_count -= 1
+            return
 
         # --- FILTRO MODO DEBUG / LISTA BLANCA DE TELÉFONOS ---
         try:
@@ -2725,7 +2980,24 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
         state, manual, cur_name, chan, _, handoff, named, cur_summary = get_session(phone, inst_name)
         logger.info(f" [DEBUG-TRACE] get_session OK. State: {state}")
         
-        # --- PAUSA POR TICKET ACTIVO / HANDOFF ---
+        # Determinar company_id previamente
+        company_id = None
+        try:
+            conn_tmp = sqlite3.connect(DB_PATH, timeout=5)
+            c_tmp = conn_tmp.cursor()
+            c_tmp.execute("SELECT company_id FROM connections WHERE instance=?", (inst_name,))
+            row_tmp = c_tmp.fetchone()
+            if row_tmp: company_id = row_tmp[0]
+            conn_tmp.close()
+        except: pass
+
+        if not company_id:
+            inst_l = inst_name.lower()
+            if "iabox" in inst_l or "virtual" in inst_l: company_id = 3
+            elif "colab" in inst_l or "global" in inst_l: company_id = 4
+            elif "canes" in inst_l: company_id = 1
+
+        # PAUSA POR TICKET ACTIVO / HANDOFF (Excepto para ComunicacionMKT / Empresa 4)
         try:
             conn_tk = sqlite3.connect(DB_PATH, timeout=5)
             c_tk = conn_tk.cursor()
@@ -2736,7 +3008,7 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
             logger.error(f"[TK-CHK] {e}")
             active_tk = None
 
-        if active_tk or handoff == 1 or manual == 1:
+        if (active_tk or handoff == 1 or manual == 1) and company_id != 4:
             logger.info(f" [PROC] IA Pausada para {phone} (Ticket activo: {bool(active_tk)} / Handoff: {handoff} / Manual: {manual})")
             processing_count -= 1
             return
@@ -2804,6 +3076,15 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                     ia_prompt = "Eres el Asesor Virtual Oficial de Colaboratium (Fintech, Préstamos P2P y Procesos KYC). Responde de forma clara y profesional."
                 elif company_id == 3:
                     ia_prompt = "Eres el Asesor Virtual Oficial de IA Box (Boxes, Bauleras y Oficina Virtual en Estados Unidos 2339, CABA). Responde de forma cordial, profesional y clara sobre guardado de muebles, cajas, vehículos, mercadería, depósitos y oficina virtual con domicilio fiscal."
+                elif company_id == 4:
+                    ia_prompt = (
+                        "Eres el Asesor Virtual y Reclutador Oficial de ComunicacionMKT representando a Colaboratium "
+                        "(Fintech P2P registrada ante el BCRA Nº 40.015, primera plataforma P2P con IA y retornos superiores a la banca tradicional).\n\n"
+                        "REGLAS ESTRATÉGICAS MANDATORIAS:\n"
+                        "1. Responde de forma clara, motivadora, ejecutiva y profesional a cualquier pregunta del candidato (ej: qué hace la empresa, retorno, comisiones del 6%, BCRA 40.015, acreditación directa en CVU) usando la Base de Conocimiento.\n"
+                        "2. AL FINALIZAR CADA RESPUESTA, DEBES INCLUIR SIEMPRE ESTA PREGUNTA EXACTA DE CIERRE:\n"
+                        "   '¿Querés que te derive ahora mismo con el equipo de Colaboratium (+54 9 11 2473-7437) para mostrarte los detalles y el esquema de comisiones?'"
+                    )
                 else:
                     ia_prompt = "Eres el Asesor Virtual de Ventas y Atención al Cliente."
 
@@ -3073,6 +3354,137 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                 ]:
                     if os.path.exists(dp): return dp
                 return None
+
+            # --- LÓGICA ESPECÍFICA COMUNICACIONMKT / RECLUTAMIENTO COLABORATIUM (EMPRESA 4) ---
+            if company_id == 4:
+                history_data = cache_get_history(phone, inst_name, limit=8)
+                body_lower = body.lower().strip()
+                is_accepting = any(w in body_lower for w in ["si", "sí", "dale", "me interesa", "interesa", "quiero", "derivame", "derivar", "contacto", "pasame", "coordinar", "avanzar", "bueno", "perfecto", "claro", "por favor"])
+                is_asking_question = any(w in body_lower for w in ["que", "qué", "como", "cómo", "cuanto", "cuánto", "donde", "dónde", "quien", "quién", "dedica", "empresa", "funciona", "retorno", "comision", "comisión", "bcra", "p2p"])
+                is_operator_cmd = any(cmd in body_lower for cmd in ["enviar interesado", "derivar interesado", "enviar ticket", "derivar ticket", "mandar interesado", "derivar colaboratium", "enviar a colaboratium"])
+
+                if (is_accepting and not is_asking_question) or is_operator_cmd:
+                    # Obtener datos completos de la agenda (con resguardo por teléfono, LID de WhatsApp o log de campaña reciente)
+                    cand_name, cand_phone, cand_email, cand_dni = cur_name or phone, phone, "", ""
+                    cand_rol, cand_zona, cand_url = "Asesor Comercial / Financiero", "No especificada", ""
+                    try:
+                        conn_ag = sqlite3.connect(DB_PATH, timeout=5)
+                        c_ag = conn_ag.cursor()
+                        clean_p_digits = re.sub(r'\D', '', str(phone))
+                        last_8 = clean_p_digits[-8:] if len(clean_p_digits) >= 8 else clean_p_digits
+
+                        c_ag.execute("""
+                            SELECT name, email, dni, metadata, phone FROM contacts_agenda 
+                            WHERE phone=? OR phone=? OR phone LIKE ? 
+                            ORDER BY CASE WHEN phone=? THEN 1 ELSE 2 END LIMIT 1
+                        """, (phone, f"549{clean_p_digits[-10:]}", f"%{last_8}", phone))
+                        r_ag = c_ag.fetchone()
+
+                        # Si vino por un LID de WhatsApp (ej: 23592305746032), buscar el contacto recién enviado en la campaña para esta instancia
+                        if not r_ag or not r_ag[0] or r_ag[0] == phone or r_ag[0] == 'Cliente Nuevo':
+                            c_ag.execute("""
+                                SELECT contact_name FROM mkt_execution_logs 
+                                WHERE status='sent' ORDER BY rowid DESC LIMIT 1
+                            """)
+                            r_log = c_ag.fetchone()
+                            if r_log and r_log[0]:
+                                recent_name = r_log[0]
+                                c_ag.execute("""
+                                    SELECT name, email, dni, metadata, phone FROM contacts_agenda 
+                                    WHERE name=? OR name LIKE ? LIMIT 1
+                                """, (recent_name, f"%{recent_name.split()[0]}%"))
+                                r_ag = c_ag.fetchone()
+
+                        conn_ag.close()
+                        if r_ag:
+                            if r_ag[0] and r_ag[0] != 'Cliente Nuevo': cand_name = r_ag[0]
+                            cand_email = r_ag[1] or ""
+                            cand_dni = r_ag[2] or ""
+                            if r_ag[4]: cand_phone = r_ag[4]
+                            if r_ag[3]:
+                                try:
+                                    m_dict = json.loads(r_ag[3])
+                                    cand_rol = m_dict.get('rol') or cand_rol
+                                    cand_zona = m_dict.get('zona') or cand_zona
+                                    cand_url = m_dict.get('url') or cand_url
+                                except: pass
+                    except Exception as e_ag: logger.error(f"[AG-FETCH ERROR] {e_ag}")
+
+                    first_n = cand_name.split()[0].capitalize() if cand_name else "ahí"
+
+                    # Formatear y derivar notificación completa al número oficial de Colaboratium (541124737437 / 5491124737437)
+                    colab_target = "5491124737437@s.whatsapp.net"
+                    colab_target_alt = "541124737437@s.whatsapp.net"
+                    
+                    origin_label = "Derivación por Operador" if is_operator_cmd else "Campaña Reclutamiento Asesores (ComunicacionMKT)"
+                    referral_msg = (
+                        f"📥 *NUEVO INTERESADO RED DE ASESORES COLABORATIUM*\n\n"
+                        f"👤 *Nombre*: {cand_name}\n"
+                        f"📱 *Teléfono*: +{cand_phone}\n"
+                        f"📧 *Email*: {cand_email or 'No especificado'}\n"
+                        f"📍 *Zona*: {cand_zona}\n"
+                        f"💼 *Rol*: {cand_rol}\n"
+                        f"📄 *DNI*: {cand_dni or 'No especificado'}\n"
+                        f"🔗 *Perfil*: {cand_url or 'Sin enlace'}\n\n"
+                        f"💬 *Respuesta de Confirmación*: \"{body}\"\n\n"
+                        f"📌 *Origen*: {origin_label}"
+                    )
+
+                    try:
+                        _send(colab_target, inst_name, referral_msg)
+                        _send(colab_target_alt, inst_name, referral_msg)
+                        logger.info(f"[REFERRAL-COLAB] Derivado candidato {cand_name} ({cand_phone}) a Colaboratium (541124737437)")
+                    except Exception as e_ref:
+                        logger.error(f"[REFERRAL-COLAB ERROR] {e_ref}")
+
+                    # Marcar sesión en handoff / manual
+                    try:
+                        conn_h = sqlite3.connect(DB_PATH, timeout=5)
+                        c_h = conn_h.cursor()
+                        c_h.execute("UPDATE sessions SET pending_handoff=1, manual=1, last_origin='HUMAN' WHERE phone=? AND instance=?", (phone, inst_name))
+                        c_h.execute("INSERT INTO tickets (phone, instance, summary, status, company_id, summary_ia) VALUES (?, ?, ?, 'pending_handoff', 4, ?)",
+                                    (phone, inst_name, f"Interesado en Red de Asesores: {body}", f"Interesado: {cand_name} ({phone})"))
+                        conn_h.commit()
+                        conn_h.close()
+                    except: pass
+
+                    if is_operator_cmd:
+                        _send(jid, inst_name, f"✅ Ficha del candidato *{cand_name}* (+{cand_phone}) derivada exitosamente al equipo de Colaboratium (+54 9 11 2473-7437).")
+                        return
+                    else:
+                        reply_to_cand = (
+                            f"¡Buenísimo {first_n}! Ya derivé tus datos al equipo de Colaboratium. "
+                            f"Te van a contactar a la brevedad por aquí o podés escribirles directamente al +54 9 11 2473-7437 "
+                            f"para coordinar la propuesta y organizar una reunion para explicar como funciona Colaboratium.\n\n"
+                            f"podes ver mas info en\n"
+                            f"https://www.instagram.com/colaboratium/\n"
+                            f"y en la web\n"
+                            f"https://colaboratium.com.ar/\n"
+                            f"¡Muchas gracias!"
+                        )
+                        _send(jid, inst_name, reply_to_cand)
+                        update_session(phone, inst_name, channel='WA', last_origin='BOT', update_outgoing=True)
+                        return
+
+                    reply_to_cand = (
+                        f"¡Buenísimo {first_n}! Ya derivé tus datos al equipo de Colaboratium. "
+                        f"Te van a contactar a la brevedad por aquí o podés escribirles directamente al +54 9 11 2473-7437 "
+                        f"para coordinar la propuesta y el esquema de comisiones del 6%. ¡Muchas gracias!"
+                    )
+                    _send(jid, inst_name, reply_to_cand)
+                    try: cache_add_message(phone, inst_name, 'assistant', reply_to_cand)
+                    except: pass
+                    processing_count -= 1; return
+                else:
+                    # Responder la pregunta del candidato con la Base de Conocimiento de Colaboratium y preguntar al final si desea ser derivado
+                    res_ia = query_ollama(body, ia_prompt, inst_name, history=history_data)
+                    closure_q = "¿Querés que te derive ahora mismo con el equipo de Colaboratium (+54 9 11 2473-7437) para mostrarte la propuesta y el esquema de comisiones del 6%?"
+                    if "2473-7437" not in res_ia and "derive" not in res_ia.lower():
+                        res_ia += f"\n\n{closure_q}"
+                    _send(jid, inst_name, res_ia)
+                    try: cache_add_message(phone, inst_name, 'assistant', res_ia)
+                    except: pass
+                    processing_count -= 1; return
 
             current_node = nodes.get(state) if state else None
             # new_state is already set above
@@ -4268,7 +4680,8 @@ def get_active_evo_instance():
     return EVO_INSTANCE
 
 def mkt_loop():
-    logger.info(" [MKT] Iniciando bucle de marketing (MKT-LOOP-V3)...")
+    # Legacy mkt_loop deshabilitado. El envio secuencial a ritmo controlado de 20/hs es administrado exclusivamente por run_mkt_sequential_orchestrator.py
+    return
     while True:
         try:
             conn = sqlite3.connect(DB_PATH, timeout=30)
@@ -4311,8 +4724,11 @@ def mkt_loop():
 
                 for c_id, name, phone, email, target_channel, msg_body, camp_id, media, meta_json, camp_name in contacts:
                     success = False
-                    trace_id = f"TRC-{secrets.token_hex(4).upper()}"
-                    msg_body = msg_body.replace('{{nombre}}', name or "Cliente")
+                    # Formateo robusto de nombre propio en plantillas
+                    first_name_clean = str(name or '').strip().split()[0].capitalize() if (name and str(name).lower() not in ['nan', 'none', 'cliente nuevo', 'candidato comercial', '']) else 'ahí'
+                    msg_body = re.sub(r'\{\{\s*nombre\s*\}\}', first_name_clean, str(msg_body or ''), flags=re.IGNORECASE)
+                    msg_body = re.sub(r'[\{\[\(]\s*nombre\s*[\}\]\)]', first_name_clean, msg_body, flags=re.IGNORECASE)
+                    msg_body = msg_body.replace('Nombre de Ejemplo', first_name_clean)
                     
                     try: meta_data = json.loads(meta_json) if meta_json else {}
                     except: meta_data = {}
@@ -4334,6 +4750,7 @@ def mkt_loop():
                             logger.error(f" [MKT] Saltando WA para {phone} (No hay instancia activa)")
                             continue
                             
+                        trace_id = f"mkt_{int(time.time())}"
                         logger.info(f" [MKT] Enviando WA a {phone_clean} (Trace: {trace_id}) via {current_inst}")
                         try:
                             payload = {"number": f"{phone_clean}@s.whatsapp.net", "text": msg_body, "delay": 1200}
@@ -4376,7 +4793,7 @@ def mkt_loop():
                         except Exception as we: logger.error(f" [MKT-WA-REQ-ERR] {we}")
                     
                     elif target_channel == 'EMAIL' and email:
-                        logger.info(f" [MKT] Enviando Email a {email} (Trace: {trace_id})")
+                        logger.info(f" [MKT] Enviando Email a {email} (Trace: {c_id})")
                         email_conf = {"host": "smtp.gmail.com", "port": 587, "user": "colaboratium@gmail.com", "password": "EMAIL_ACCOUNT_PASSWORD"} 
                         if current_inst:
                             smtp_p = os.path.join(CONFIG_DIR, current_inst, "smtp_config.json")
@@ -4399,7 +4816,7 @@ def mkt_loop():
                         try:
                             if send_mkt_email(email, camp_name or "Campaña de Marketing", msg_body, email_conf, attachment_path=last_attachment):
                                 success = True
-                                log_message(email, "EMAIL-SVC", msg_body, "out", trace_id=trace_id, origin='SISTEMA')
+                                log_message(email, "EMAIL-SVC", msg_body, "out", origin='SISTEMA')
                         except Exception as ee: logger.error(f" [MKT-EMAIL-ERR] {ee}")
 
                     elif target_channel == 'TELEGRAM' and phone:
@@ -4447,7 +4864,7 @@ def mkt_loop():
                     if success:
                         log_message(phone_clean if target_channel == 'WA' else phone, 
                                    current_inst if target_channel == 'WA' else TG_INSTANCE, 
-                                   msg_body, "out", trace_id=trace_id, origin='MKT')
+                                   msg_body, "out", trace_id=f"MKT_{camp_id}_{c_id}", origin='MKT')
                         update_session(phone_clean if target_channel == 'WA' else phone, 
                                       current_inst if target_channel == 'WA' else TG_INSTANCE, 
                                       channel=target_channel, last_origin='MKT', update_outgoing=True)

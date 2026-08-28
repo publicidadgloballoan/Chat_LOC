@@ -1,0 +1,525 @@
+==================================================
+DOCUMENTO: Colaboratium Final Abril.pdf
+==================================================
+Página Web Oficial: https://colaboratium.com.ar/
+Instagram Oficial: https://www.instagram.com/colaboratium/
+CEO & Fundador: Lic. Damian Feuermann
+Domicilio Legal: Maipú 568 Piso 8, CABA, Argentina
+Licencia BCRA: Nº 40.015 (Plataforma de Créditos P2P)
+Bancos Partners: BIND y Banco COINAG
+
+# BASE DE CONOCIMIENTO - COLABORATIUM
+
+
+
+==================================================
+DOCUMENTO: Colaboratium Final Abril.pdf
+==================================================
+
+--- Página 1 ---
+CEO:  Lic. Damian Feuermann
+
+--- Página 2 ---
+Que es
+colaboratium
+Colaboratium es la primer
+plataforma de Creditos entre
+particulares. (P2P)
+Nuestra mision es que las personas colaboren
+entre si con el fin de conseguir mejores condiciones
+que las del mercado.
+
+--- Página 3 ---
+Licencia BCRA
+La Garantía de transparencia y
+confianza en Colaboratium
+Colaboratium cuenta con la licencia oficial otorgada por el Banco
+Central de la República Argentina. Esta acreditación no solo asegura
+la transparencia en nuestras operaciones, sino que también refuerza
+nuestro compromiso con el cumplimiento normativo, generando
+confianza tanto en inversores como en tomadores de créditos.
+Obligación de Presentación Mensual a BCRA.
+
+--- Página 4 ---
+Bancos Partners: 
+Aprobación Bancaria
+Proyecto aprobado por bancos de renombre que respaldan.
+Los departamentos Legales de ambas instituciones han aprobado
+la operatoria de nuestra plataforma.
+
+--- Página 5 ---
+Como es el proceso:
+Es digital a través de nuestra
+plataforma, la cual muestra con
+formato tipo “Marketplace” las
+solicitudes de préstamos de los
+particulares, y el inversor puede
+decidir a quién prestar o activar el
+modo automático con la aplicación
+de IA para la óptima asignación de
+fondos. Con 3 perfiles basados en
+conocimiento y riesgo:
+Principiante
+Intermedio 
+Avanzado
+
+--- Página 6 ---
+Atomización de riesgo
+Al momento que el inversor opta por la
+asignación automática de créditos, entre
+otros análisis, la IA va a hacer una
+asignación “atomizada” de créditos. Esto
+significa que la inversión se dividirá en
+pequeñas partes al momento de asignarse
+los créditos para disminuir el riesgo de la
+inversion. Por ejemplo, Juan pide $100.000
+y el sistema le asignará el dinero de 20
+inversores diferentes. Con esto se evita que
+solo Pedro le preste a Juan los $100.000 y el
+riesgo recaiga en un solo pagador y un solo
+prestador.
+Basico: 
+La asignacion 
+es 100%
+automatica
+Intermedio:
+ La ia hara algunas
+ preguntas 
+antes de asignar
+Avanzado:
+Para invesores expertos la ia 
+pregunta y presenta plan 
+de asignacion
+
+--- Página 7 ---
+Scoring de Particulares
+Evaluamos a los tomadores de
+créditos con los principales Bureau
+del mercado, como Veraz y Nosis.
+Además de las propias herramientas
+que nos brinda el Banco Central.
+Por ejemplo: del 100% de los pedidos de
+préstamos, se hace un primer filtrado en el cual
+solo precalifican entre el 10 y el 15% de los
+solicitantes. Luego de eso y de completar el análisis
+de riesgo, se terminan otorgando créditos solo al
+5% en promedio de los solicitantes.
+
+--- Página 8 ---
+Motor de
+Decisión
+Claro y
+Confiable
+El Motor basado en IA
+Le permite a la plataforma la selección
+de perfiles y reducir al máximo la
+incobrabilidad.
+
+--- Página 9 ---
+Operación Bancarizada
+Seguridad y transparencia total
+en la gestión financiera de
+Colaboratium
+Todas las operaciones de Colaboratium se realizan
+mediante canales bancarios oficiales, asegurando un
+proceso transparente y seguro. Esto no solo garantiza el
+cumplimiento normativo, sino que también proporciona
+tranquilidad tanto a inversores como a tomadores,
+asegurando  la trazabiliad y legalidad de todas las
+operaciones. la justificación del origen de fondos para
+montos elevados.
+
+--- Página 10 ---
+Dinámica financiera bancarizada
+Inversor
+Contribuye con fondos para
+préstamos
+Tomador
+Recibe fondos para proyectos
+específicos
+Colaboratium
+Plataforma que coordina el flujo
+financiero
+Transparencia
+Mantenemos claridad en cada
+transacción
+
+--- Página 11 ---
+Colaboratium no administra fondos de
+terceros
+Inversor
+deposita los  fondos en su
+ propio CVU
+Tomador
+Recibe fondos en el  
+CBU/CVU a su Nombre 
+Colaboratium
+Recibe SOLO los pagos de
+sus comisiones en nuestra  
+CVU
+
+--- Página 12 ---
+Gestión de
+Morosidad
+Automatizada
+Recordatorios Automatizados
+Sistema eficiente que mejora la gestión de cobros.
+Esquema de cobro de cuotas
+El primer día hábil antes del vencimiento se le
+notificará mediante nuestro bot al tomador
+sobre el débito:
+-En caso de falta de fondos del primer intento,
+se realizará automáticamente 2 intentos más,
+uno a las 48 horas y otro a las 96 horas.
+También informados mediante el bot.
+-Si no fuera satisfactorio ninguno de los
+intentos de cobro, se comenzará de manera
+automática la gestión de cobranza mediante el
+bot con reclamos cada 72 horas.
+
+--- Página 13 ---
+Gestión legal de la cobranza
+Legales
+Cuando se agotaron las instancias
+del Bot, se deriva
+automáticamente a nuestros
+estudios legales partners. Con
+esto se intentará llegar a acuerdos
+extrajudiciales de rápida
+resolución.
+
+--- Página 14 ---
+Comisiones
+Consultar a su lider o Consultar a colaboratium al celular 1124737437 por what app
+Cuando el cliente haga reinversión, el sistema
+automáticamente devengará las comisiones de la misma
+manera.
+En caso de incobrabilidad, estas impactarán en la
+proporción correspondiente al saldo pendiente de
+comisión y cuando se recupere la cobranza se recuperara
+la comision.
+
+--- Página 15 ---
+Cómo se cobran las comisiones
+
+--- Página 16 ---
+Confianza,
+Crecimiento y
+Oportunidad
+Únete a nosotros
+…y transformemos juntos el mercado financiero y crezcamos.
+
+
+
+==================================================
+DOCUMENTO: Como es el mercado fintech-colabporatium.pdf
+==================================================
+
+--- Página 1 ---
+C O L A B O R A T I U M
+Panorama Fintech
+de Préstamos en Argentina
+Mercado · Tasas · Competencia · Oportunidad
+2026 · Argentina
+
+--- Página 2 ---
+¿Qué son las Fintech de Préstamos?
+Plataformas digitales que otorgan crédito por fuera del sistema bancario
+tradicional.
+⚡
+Aprobación rápida
+🔢
+Scoring alternativo
+👤
+Clientes no bancarizados
+📱
+Procesos 100% digitales
+📈
+Tasas más altas que bancos
+🚫
+Sin garantías requeridas
+
+--- Página 3 ---
+Fintech de Préstamos en Argentina
+Principales actores
+Mercado Crédito
+Ualá
+Naranja X
+Moni
+Prestix
+Credicuotas
+Wenance
+~400
+Fintech en total en Argentina
+~60
+Fintech de lending
+40–50
+Prestan directamente a personas
+
+--- Página 4 ---
+Tasas de Interés Fintech
+¿Por qué las tasas son más altas?
+Mayor riesgo crediticio
+Clientes sin historial bancario
+Costos de fondeo más altos
+Préstamos rápidos y sin garantías
+Tipo
+Tasa
+TNA promedio
+100% – 140%
+CFT promedio
+150% – 300%
+Subprime
+300% – 400%
+TNA
+~120%
+CFT
+~220%
+Subprime
+~350%
+
+--- Página 5 ---
+Tamaño del Mercado
+~USD 1.5–2B
+Cartera total
+~USD 100–140M
+Préstamos mensuales
++5M
+Usuarios activos
+15–20%
+Participación del crédito total
+📊  Mercado en crecimiento sostenido
+
+--- Página 6 ---
+Oportunidad de Mercado
+Modelos con oportunidad
+Plataformas P2P
+Préstamos colaborativos
+Marketplace de crédito
+Fondeo de inversores privados
+Tasas intermedias banco–fintech
+Beneficios del modelo colaborativo
+↓
+Menores tasas para el tomador
+↑
+Mayor rendimiento para el inversor
+↔
+Menor spread financiero
+
+--- Página 7 ---
+C O N C L U S I Ó N
+El mercado fintech de préstamos en Argentina
+📈
+Está en crecimiento sostenido
+💰
+Opera con tasas elevadas
+🚀
+Hay espacio para nuevos modelos de negocio
+🤝
+El modelo colaborativo puede ser una alternativa eficiente
+C O L A B O R A T I U M  ·  2 0 2 6
+
+--- Página 8 ---
+¿Cuánto prestan las Fintech por mes?
+5,7M
+Créditos fintech
+vigentes en 2025
+$424.090
+Monto promedio
+por préstamo (ARS)
+400.000
+Créditos otorgados
+solo en marzo 2025
+Cartera activa total
+≈ $2,4 billones ARS
+Stock total activo — no es originación mensual
+Originación mensual estimada
+$150.000M – $200.000M ARS
+400.000 créditos × $424.090 ≈ $160.000M/mes
+Participación en el crédito total del sistema financiero argentino:
+Solo 2% – 2,2%
+→ Enorme espacio para modelos P2P y colaborativos
+C O L A B O R A T I U M  ·  2 0 2 6
+
+--- Página 9 ---
+El Modelo Colaboratium
+E L  P R O B L E M A
+🏦
+Bancos excluyen
+No prestan a millones de clientes sin historial formal
+💸
+Fintech cobran 200%+
+Tasas prohibitivas para el tomador de crédito
+📉
+Inversores sin opciones
+No tienen productos de renta accesibles y rentables
+→
+N U E S T R A  P R O P U E S T A
+🤝
+Conectamos ambos lados
+Inversores fondean créditos a tomadores sub-bancarizados
+⚙️
+Fees por originar y administrar
+Escalamos sin usar capital propio
+🌎
+Argentina + Latam
+Mercado de cientos de millones de personas desatendidas
+Menor tasa para el tomador · Mayor rendimiento para el inversor · Sin capital propio en riesgo
+
+
+
+==================================================
+DOCUMENTO: Manual_KYC_Colaboratium.pdf
+==================================================
+
+--- Página 1 ---
+Manual de Onboarding Digital y Políticas 
+KYC (Know Your Customer) 
+Empresa: GLOBAL LOAN S.A. 
+Nombre Comercial: Colaboratium 
+Domicilio: Maipú 568 Piso 8, CABA, Argentina 
+1. Introducción y Objetivo 
+El presente documento detalla el procedimiento automatizado de alta de clientes (Onboarding 
+Digital) y las políticas de Conozca a su Cliente (KYC) implementadas por GLOBAL LOAN S.A. 
+(Colaboratium). 
+El objetivo principal es garantizar la correcta identificación de los usuarios, prevenir el fraude 
+de identidad y cumplir con las normativas vigentes en materia de Prevención de Lavado de 
+Activos y Financiación del Terrorismo (PLA/FT), utilizando los servicios de validación de 
+identidad y compliance provistos por el proveedor de onboarding. 
+2. Flujo de Onboarding Digital 
+El proceso de alta se realiza mediante un registro único, permitiendo una experiencia de 
+usuario fluida y validaciones de seguridad en tiempo real. 
+Paso 1: Captura de Documento e Identidad 
+1.​ El usuario inicia el proceso en la plataforma de Colaboratium. 
+2.​ Se solicita la captura fotográfica del frente y dorso del Documento Nacional de Identidad 
+(DNI). 
+3.​ Acción de Sistema: Colaboratium envía la solicitud al proveedor de onboarding (POST 
+Crear solicitud OB) y procede a validar los datos extraídos contra el Registro Nacional de 
+las Personas (PATCH Validar Renaper Datos). 
+Paso 2: Biometría Facial y Prueba de Vida (Liveness) 
+1.​ Se solicita al usuario una fotografía tipo selfie. 
+2.​ Acción de Sistema: Se envía al proveedor de onboarding para comparar los rasgos 
+faciales con la foto registrada en Renaper (PATCH Validar Renaper Rostro). 
+3.​ Se solicita al usuario grabar un breve video (Video Selfie) realizando una acción específica. 
+4.​ Acción de Sistema: Se valida la prueba de vida para evitar suplantación de identidad 
+mediante fotos estáticas o máscaras (PATCH Validar prueba de vida). 
+
+--- Página 2 ---
+Paso 3: Declaraciones Juradas y Enriquecimiento de Datos 
+1.​ El usuario completa datos adicionales requeridos para su perfilamiento (domicilio, 
+ocupación, contacto). 
+2.​ El usuario acepta explícitamente los Términos y Condiciones (TyC) y las Declaraciones 
+Juradas (DDJJ) pertinentes. 
+Paso 4: Validaciones de Compliance y Riesgo 
+Una vez recopilada la información, el sistema de Colaboratium ejecuta una serie de 
+validaciones en cascada a través del proveedor de onboarding: 
+1.​ Validación Nosis: Consulta de antecedentes comerciales y financieros (PATCH Validar 
+Nosis). 
+2.​ Validación UIF: Verificación de condición de Sujeto Obligado y otras normativas (PATCH 
+Validar UIF). 
+3.​ Validación AFIP: Verificación de constancia de inscripción y actividad económica (PATCH 
+Validar AFIP). 
+4.​ Validación Worldsys: Cruce contra bases de datos de Personas Expuestas Políticamente 
+(PEP) y listas de terroristas/sancionados (PATCH Validar Worldsys). 
+5.​ Carga de DDJJ: Impacto de los datos y TyC aceptados (PATCH Actualizar DDJJ y 
+adicionales). 
+6.​ Matriz de Riesgo: Evaluación final del perfil del usuario (PATCH Validar matriz de riesgo y 
+finalizar). 
+Paso 5: Resolución 
+●​ Si todas las validaciones son exitosas, el proveedor de onboarding emite un aviso 
+mediante un Webhook (POST Webhook solicitud aprobada). 
+●​ Colaboratium informa al usuario que su cuenta ha sido habilitada exitosamente. 
+3. Matriz de Verificaciones (Motor de Reglas) 
+El ecosistema de Colaboratium procesa y evalúa más de 50 variables de riesgo durante el 
+onboarding. A continuación, se detallan los controles críticos evaluados (basados en la 
+respuesta de la API de validación): 
+A. Verificación de Identidad (Renaper y Biometría) 
+●​ Documento Válido y Existente: Verificación de ejemplar y vigencia (documentoExiste, 
+documentoValido). 
+●​ Estado Vital: Confirmación de que el titular no se encuentra registrado como fallecido 
+(fallecido: false). 
+●​ Biometría (Addalia/Amazon): Resultado positivo en la comparación facial y prueba de 
+vida (addaliaPruebaVida: true, addaliaValidacionFacial: true). 
+●​ Morfología del Documento: Verificación de adulteraciones físicas en la imagen del DNI 
+
+--- Página 3 ---
+(errorMorfologia). 
+B. Listas Restrictivas y Prevención de Fraude 
+●​ Listas Negras Propias e Históricas: Detección de DNI, Emails o Teléfonos previamente 
+bloqueados (documentoListaNegra, documentoListaNegraProveedor). 
+●​ Análisis de Fraude Digital (Seon): Evaluación del dispositivo, IP, y scoring de riesgo del 
+correo y teléfono (puntajeRiesgo, emailScoring, telefonoScoring). 
+C. Cumplimiento Normativo (PLA/FT) 
+●​ Condición UIF: Detección de Sujetos Obligados ante la Unidad de Información Financiera 
+(uifSujetoObligado). 
+●​ PEP (Personas Expuestas Políticamente): Cruce con bases públicas (esPEP). 
+●​ Listas de Terrorismo (Worldsys): Cruce restrictivo absoluto (worldsysTerrorista). 
+●​ Regímenes Fiscales Internacionales: Detección de condición FATCA (EE.UU.) u OCDE 
+(esFatca, esOcde). 
+4. Legajo Digital del Cliente 
+Al finalizar un Onboarding exitoso, Colaboratium consolida un Legajo Digital inalterable que 
+contiene la siguiente información respaldatoria (basado en el Webhook de Aprobación): 
+1.​ Datos Biográficos y Registrales: Nombre, Apellido, Género, Fecha de Nacimiento, 
+Nacionalidad. 
+2.​ Datos Documentales: Número de DNI, Tipo de Ejemplar, Fecha de Emisión y Vencimiento, 
+CUIL validado. 
+3.​ Datos de Contacto e Impositivos: Email, Teléfono verificado mediante OTP, Actividad 
+AFIP. 
+4.​ Domicilios: Domicilio personal (Calle, Altura, Ciudad, Provincia, CP) y Domicilio Comercial 
+(si aplica). 
+5.​ Aceptaciones: Registro de aceptación de Términos, Condiciones y DDJJ. 
+6.​ Billetera Digital (Wallet): Asignación de cuenta, CVU (Clave Virtual Uniforme) y estado de 
+habilitación para operar. 
+5. Políticas de Rechazo (Red Flags) 
+El sistema denegará automáticamente la apertura de cuenta y emitirá una alerta al Oficial de 
+Cumplimiento si se detecta alguna de las siguientes situaciones: 
+●​ Falsedad o adulteración detectada en el DNI. 
+●​ Falla en la prueba de vida o discordancia biométrica. 
+●​ Coincidencia positiva en listas de Terrorismo (Worldsys). 
+●​ Presencia del titular en listas negras de fraude. 
+●​ Condición de "Fallecido" informada por Renaper. 
+Documento confidencial propiedad de GLOBAL LOAN S.A. - Prohibida su reproducción no 
+
+--- Página 4 ---
+autorizada. 
+
+
+
+==================================================
+DOCUMENTO: Presentacion_Colaboratium_Fondo_Blanco.pdf
+==================================================
+
+--- Página 1 ---
+CONSULTORES FINANCIEROS
+COLABORATIUM
+Liderá la Revolución P2P en Argentina
+Oportunidad Federal: Buscamos socios estratégicos en todo el país para expandir el ecosistema de
+finanzas colaborativas.
+•
+Operatoria aprobada por banco BIND y Banco COINAG
+•
+Propuesta de Valor: Ofrecé a tus clientes rendimientos superiores con una plataforma 100% digital,
+transparente y regulada.
+•
+COLABORATIUM | PRESENTACIÓN PARA CONSULTORES FINANCIEROS 2026
+
+--- Página 2 ---
+TECNOLOGÍA Y SEGURIDAD
+El Motor de tu Crecimiento
+IA y Atomización: El capital de tus clientes se diversifica automáticamente en micro-préstamos para
+minimizar el riesgo.
+•
+Scoring de Rigor: Solo el 5% de las solicitudes son aprobadas bajo estrictos estándares crediticios.
+•
+Gestión de Cobranza 360°: Bots de recordatorio y convenios legales exclusivos para garantizar la
+recuperación.
+•
+Trazabilidad Total: Flujo directo entre CVUs. Colaboratium no administra fondos de terceros.
+•
+COLABORATIUM | SEGURIDAD Y TRANSPARENCIA
+
+
+Ingreso Recurrente: El sistema devenga automáticamente las mismas comisiones en cada reinversión
+del cliente. En caso de mora, el impacto es proporcional al saldo pendiente de comisión.
+COLABORATIUM | PLAN DE NEGOCIOS PARA CONSULTORES FINANCIEROS
+

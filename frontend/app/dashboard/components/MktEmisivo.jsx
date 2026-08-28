@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Users, FileText, Database, Target, Activity, Search, File, CheckCircle2, ChevronRight, X, Image, Video, Table, Filter, Check, Save, Copy, Eye, Trash2, Upload, Link, Phone, Mail, Globe, RotateCcw } from 'lucide-react';
+import { Send, Users, FileText, Database, Target, Activity, Search, File, CheckCircle2, ChevronRight, X, Image, Video, Table, Filter, Check, Save, Copy, Eye, Trash2, Upload, Link, Phone, Mail, Globe, RotateCcw, Radio, Play, Square } from 'lucide-react';
 import axios from 'axios';
 
 export default function MktEmisivo({ agenda = [], mktTemplates = [], refresh, mediaManifest = [], apiHost, token, instance, selectedCompany }) {
@@ -26,23 +26,122 @@ export default function MktEmisivo({ agenda = [], mktTemplates = [], refresh, me
 
   // Logs y Control de Lanzamiento
   const [mktLogs, setMktLogs] = useState([]);
+  const [mktCampaigns, setMktCampaigns] = useState([]);
+  const [totalImpacted, setTotalImpacted] = useState(0);
+  const [totalResponded, setTotalResponded] = useState(0);
+  const [totalDerived, setTotalDerived] = useState(0);
   const [showLaunchModal, setShowLaunchModal] = useState(false);
   const [activeChannels, setActiveChannels] = useState({ WA: true, EMAIL: true, IG: true, FB: true });
 
-  React.useEffect(() => {
-    let interval;
-    interval = setInterval(async () => {
-      try {
-        const res = await axios.get(`http://${apiHost}:4000/api/data?action=get_mkt_logs&companyId=${selectedCompany?.id}`, { headers: { Authorization: `Bearer ${token}` } });
-        if (res.data && res.data.success) {
-          setMktLogs(res.data.logs || []);
-        }
-      } catch (e) {
-        console.error("Log poll error", e);
+  // Modal interactivo de QR para Línea Emisiva (WASender / Motor Anti-Baneo)
+  const [showMktQrModal, setShowMktQrModal] = useState(false);
+  const [mktQrData, setMktQrData] = useState(null);
+  const [mktQrLoading, setMktQrLoading] = useState(false);
+  const [wasenderConfig, setWasenderConfig] = useState({ headless: false, status: 'stopped' });
+
+  const fetchWasenderStatus = async () => {
+    try {
+      const res = await axios.get(`http://${apiHost}:4000/api/data?action=get_wasender_status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success && res.data.config) setWasenderConfig(res.data.config);
+    } catch (e) { console.error("Error fetching WASender status:", e); }
+  };
+
+  const handleToggleWasenderHeadless = async () => {
+    try {
+      const res = await axios.post(`http://${apiHost}:4000/api/data`, { action: 'toggle_wasender_headless' }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success && res.data.config) {
+        setWasenderConfig(res.data.config);
+        alert(`Modo cambiado a: ${res.data.config.headless ? 'Silencioso (Headless)' : 'Debug (Ventana Chromium Visible)'}`);
       }
-    }, 3000);
+    } catch (e) { alert("Error al cambiar modo de WASender"); }
+  };
+
+  const handleLaunchWasender = async () => {
+    try {
+      const res = await axios.post(`http://${apiHost}:4000/api/data`, { action: 'launch_wasender' }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        alert(res.data.message);
+        fetchWasenderStatus();
+      }
+    } catch (e) { alert("Error al lanzar WASender Engine"); }
+  };
+
+  const handleToggleCampaignStatus = async (campaignId, currentStatus) => {
+    const nextStatus = (currentStatus === 'paused' || currentStatus === 'stopped') ? 'active' : 'paused';
+    try {
+      const res = await axios.post(`http://${apiHost}:4000/api/data`, {
+        action: 'toggle_campaign_status',
+        campaignId,
+        status: nextStatus
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data?.success) {
+        fetchLogsAndCampaigns();
+      }
+    } catch (e) {
+      alert("Error al cambiar estado de campaña");
+    }
+  };
+
+  const handleOpenMktQrModal = async () => {
+    setShowMktQrModal(true);
+    setMktQrLoading(true);
+    try {
+      const [resB64, resWas] = await Promise.all([
+        axios.get(`http://${apiHost}:4000/api/data?action=get_qr&instance=mkt_colab`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        axios.get(`http://${apiHost}:4000/api/data?action=get_wasender_status`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null)
+      ]);
+      
+      const wasCfg = resWas?.data?.config;
+      if (wasCfg) setWasenderConfig(wasCfg);
+
+      if (wasCfg?.qr_base64) {
+        setMktQrData({ status: 'qr_ready', base64: wasCfg.qr_base64 });
+      } else if (wasCfg?.status === 'connected') {
+        setMktQrData({ status: 'connected', phone: 'MKT Engine Activo' });
+      } else if (resB64?.data) {
+        setMktQrData(resB64.data);
+      }
+    } catch (e) {
+      console.error("Error fetching MKT QR:", e);
+    } finally {
+      setMktQrLoading(false);
+    }
+  };
+
+  const fetchLogsAndCampaigns = async () => {
+    try {
+      const [resLogs, resCamp] = await Promise.all([
+        axios.get(`http://${apiHost}:4000/api/data?action=get_mkt_logs&companyId=${selectedCompany?.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`http://${apiHost}:4000/api/data?action=get_mkt_campaigns&companyId=${selectedCompany?.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      if (resLogs.data && resLogs.data.success) {
+        setMktLogs(resLogs.data.logs || []);
+        const imp = resLogs.data.total_impacted ?? resLogs.data.totalImpacted;
+        const resp = resLogs.data.total_responded ?? resLogs.data.totalResponded;
+        const der = resLogs.data.total_derived ?? resLogs.data.totalDerived;
+        if (imp !== undefined) setTotalImpacted(imp);
+        if (resp !== undefined) setTotalResponded(resp);
+        if (der !== undefined) setTotalDerived(der);
+      }
+      if (resCamp.data && resCamp.data.success) {
+        setMktCampaigns(resCamp.data.campaigns || []);
+      }
+    } catch (e) {
+      console.error("Log poll error", e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchLogsAndCampaigns();
+    const interval = setInterval(fetchLogsAndCampaigns, 3000);
     return () => clearInterval(interval);
-  }, [apiHost, token]);
+  }, [apiHost, token, selectedCompany]);
 
   const fieldOptions = [
     { id: 'name', label: 'Nombre Completo' },
@@ -488,6 +587,221 @@ export default function MktEmisivo({ agenda = [], mktTemplates = [], refresh, me
         </div>
       </div>
 
+      {/* Banner de Conexión de Línea Emisiva Fría (WASender / Motor Anti-Baneo) */}
+      <div className="glass p-8 rounded-[3rem] border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-black/40 to-purple-500/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
+        <div className="flex items-center gap-5">
+          <div className="p-4 bg-amber-500/20 rounded-2xl text-amber-400 border border-amber-500/30 shrink-0">
+            <Radio size={28} className="animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                MOTOR DE EMISIÓN FRÍA (WASENDER / ANTI-BANEO)
+              </span>
+            </div>
+            <h3 className="text-xl font-black text-white italic tracking-tight mt-1">
+              Chip Emisor de Campañas (<span className="text-amber-300">mkt_colab</span>)
+            </h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
+              Vincule o escanee el QR del chip emisor exclusivo para salidas masivas a contactos fríos sin riesgo para la línea oficial
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+          <button 
+            onClick={handleToggleWasenderHeadless}
+            className={`px-5 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center gap-2 ${wasenderConfig.headless ? 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20' : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'}`}
+          >
+            {wasenderConfig.headless ? '🙈 Modo Silencioso (Headless)' : '👁️ Modo Debug (Ventana Visible)'}
+          </button>
+          
+          <button 
+            onClick={handleLaunchWasender}
+            className="px-6 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-purple-500/20 hover:scale-105 transition-all flex items-center gap-2"
+          >
+            <Activity size={16} /> Iniciar WASender
+          </button>
+
+          <button 
+            onClick={handleOpenMktQrModal}
+            className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2"
+          >
+            <Radio size={16} /> Escanear QR
+          </button>
+        </div>
+      </div>
+
+      {/* Modal interactivo de Escaneo QR para Campaña Emisiva */}
+      <AnimatePresence>
+        {showMktQrModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="glass w-full max-w-md p-10 rounded-[3rem] border border-amber-500/30 shadow-2xl relative text-center space-y-6"
+            >
+              <button 
+                onClick={() => setShowMktQrModal(false)}
+                className="absolute top-6 right-6 text-slate-500 hover:text-white transition-all"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="inline-flex p-4 bg-amber-500/20 rounded-2xl text-amber-400 border border-amber-500/30">
+                <Radio size={32} className="animate-pulse" />
+              </div>
+
+              <div>
+                <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Vincular Chip Emisor MKT</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                  Escanee desde WhatsApp {'>'} Dispositivos vinculados en el número emisor (mkt_colab)
+                </p>
+              </div>
+
+              <div className="p-6 bg-white rounded-[2rem] shadow-2xl flex items-center justify-center min-h-[220px]">
+                {mktQrLoading ? (
+                  <div className="text-slate-900 font-bold text-xs animate-pulse italic flex items-center gap-2">
+                    <Activity className="animate-spin text-amber-500" /> GENERANDO CÓDIGO QR...
+                  </div>
+                ) : mktQrData?.status === 'connected' || mktQrData?.status === 'open' ? (
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-xl shadow-green-500/50 mb-3">
+                      <CheckCircle2 size={32} className="text-white" />
+                    </div>
+                    <span className="text-xs font-black text-slate-900 uppercase">CHIP EMISOR CONECTADO</span>
+                    <span className="text-[10px] font-bold text-slate-500 mt-1">{mktQrData?.phone || 'Línea Lista'}</span>
+                  </div>
+                ) : mktQrData?.base64 ? (
+                  <img src={mktQrData.base64} alt="QR Emisivo" className="w-52 h-52 object-contain" />
+                ) : (
+                  <div className="text-slate-500 font-bold text-xs italic">
+                    Sin código QR disponible. Haga clic en Obtener Nuevo QR.
+                  </div>
+                )}
+              </div>
+
+              <button 
+                onClick={handleOpenMktQrModal}
+                disabled={mktQrLoading}
+                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={16} /> {mktQrLoading ? 'Generando...' : 'Obtener Nuevo Código QR'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Panel de Campañas Registradas y Programadas */}
+      <div className="glass p-8 rounded-[3rem] border border-white/10 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-sky-500/20 rounded-xl text-sky-400"><Target size={20} /></div>
+            <div>
+              <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">Campañas Activas y Programadas</h2>
+              <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">Listado de campañas creadas, progreso y tandas de envío</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase text-slate-400 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+              Total: {mktCampaigns.length} Campaña(s)
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-[2rem] border border-white/5 bg-black/20">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white/5 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                <th className="px-6 py-4">ID</th>
+                <th className="px-6 py-4">Nombre de Campaña</th>
+                <th className="px-6 py-4">Estado</th>
+                <th className="px-6 py-4">Progreso Envíos</th>
+                <th className="px-6 py-4">Cadencia Anti-Baneo</th>
+                <th className="px-6 py-4 text-center">Control</th>
+                <th className="px-6 py-4 text-right">Fecha Creación</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {mktCampaigns.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="py-12 text-center space-y-3">
+                    <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto text-slate-600"><Target size={24}/></div>
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">No hay campañas creadas en esta empresa. Configura una arriba y presiona Lanzar Campaña.</p>
+                  </td>
+                </tr>
+              ) : (
+                mktCampaigns.map(camp => {
+                  const sent = camp.sent || 0;
+                  const total = camp.total || 0;
+                  const pct = total > 0 ? Math.round((sent / total) * 100) : 0;
+                  const isPaused = camp.status === 'paused' || camp.status === 'stopped';
+                  return (
+                    <tr key={camp.id} className="hover:bg-white/5 transition-all group">
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-sky-400">
+                        #{camp.id}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-xs font-bold text-white uppercase">{camp.name}</div>
+                        <div className="text-[9px] font-medium text-slate-500 truncate max-w-[280px] mt-0.5">{camp.template?.substring(0, 70)}...</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                          camp.status === 'completed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                          camp.status === 'active' || camp.status === 'scheduled' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                          'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                        }`}>
+                          {camp.status === 'completed' ? 'COMPLETADA' : (camp.status === 'active' || camp.status === 'scheduled') ? 'EN PROGRESO' : 'PAUSADA'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center text-[10px] font-black">
+                            <span className="text-slate-300">{sent} de {total} contactos</span>
+                            <span className="text-sky-400">{pct}%</span>
+                          </div>
+                          <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-sky-500 h-full transition-all duration-500 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 inline-block">
+                          2 - 4 min (Motor WASender)
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {camp.status !== 'completed' && (
+                          <button 
+                            onClick={() => handleToggleCampaignStatus(camp.id, camp.status)}
+                            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border flex items-center justify-center gap-1.5 mx-auto ${
+                              isPaused 
+                                ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500 hover:text-white' 
+                                : 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500 hover:text-white'
+                            }`}
+                          >
+                            {isPaused ? <Play size={12} /> : <Square size={12} />}
+                            {isPaused ? 'Reanudar' : 'Pausar'}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="text-[9px] font-black text-slate-500 uppercase tabular-nums">
+                          {camp.createdAt}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Panel de Logs / Actividad integrado debajo */}
       <div className="glass p-8 rounded-[3rem] border border-white/10 space-y-6">
         <div className="flex items-center justify-between">
@@ -524,13 +838,69 @@ export default function MktEmisivo({ agenda = [], mktTemplates = [], refresh, me
           </div>
         </div>
 
+        {/* Banner KPI de Actividad, Respuestas y Derivaciones */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* KPI 1: Impactados */}
+          <div className="bg-white/5 border border-sky-500/20 p-5 rounded-2xl flex items-center justify-between shadow-inner">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-sky-500/10 rounded-2xl text-sky-400 border border-sky-500/20">
+                <Users size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Contactos Impactados</p>
+                <p className="text-xs font-bold text-sky-400/80">Envíos de Campaña Realizados</p>
+              </div>
+            </div>
+            <div className="text-3xl font-black text-white font-mono tracking-tight">
+              {totalImpacted || mktLogs.filter(l => l.status === 'sent').length}
+            </div>
+          </div>
+
+          {/* KPI 2: Respuestas Recibidas */}
+          <div className="bg-white/5 border border-emerald-500/20 p-5 rounded-2xl flex items-center justify-between shadow-inner">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 border border-emerald-500/20">
+                <Phone size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contactos con Respuestas</p>
+                <p className="text-xs font-bold text-emerald-400/80">
+                  Tasa de Conversión: <span className="text-emerald-300 font-black">{totalImpacted > 0 ? ((totalResponded / totalImpacted) * 100).toFixed(1) : '0.0'}%</span>
+                </p>
+              </div>
+            </div>
+            <div className="text-3xl font-black text-emerald-400 font-mono tracking-tight">
+              {totalResponded}
+            </div>
+          </div>
+
+          {/* KPI 3: Tickets Derivados */}
+          <div className="bg-white/5 border border-purple-500/20 p-5 rounded-2xl flex items-center justify-between shadow-inner">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-400 border border-purple-500/20">
+                <Send size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contactos con Ticket Derivado</p>
+                <p className="text-xs font-bold text-purple-400/80">
+                  Tasa de Conversión: <span className="text-purple-300 font-black">{totalImpacted > 0 ? ((totalDerived / totalImpacted) * 100).toFixed(1) : '0.0'}%</span>
+                </p>
+              </div>
+            </div>
+            <div className="text-3xl font-black text-purple-400 font-mono tracking-tight">
+              {totalDerived}
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto rounded-[2rem] border border-white/5 bg-black/20">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/5 text-[9px] font-black text-slate-500 uppercase tracking-widest">
                 <th className="px-6 py-4">Canal</th>
                 <th className="px-6 py-4">Campaña</th>
-                <th className="px-6 py-4">Contacto</th>
+                <th className="px-6 py-4">Contacto / Nombre</th>
+                <th className="px-6 py-4">Teléfono</th>
                 <th className="px-6 py-4">Estado / Resultado</th>
                 <th className="px-6 py-4 text-right">Fecha y Hora</th>
               </tr>
@@ -538,14 +908,14 @@ export default function MktEmisivo({ agenda = [], mktTemplates = [], refresh, me
             <tbody className="divide-y divide-white/5">
               {mktLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="py-20 text-center space-y-4">
+                  <td colSpan="6" className="py-20 text-center space-y-4">
                     <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto text-slate-600"><Activity size={32}/></div>
                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">No hay actividad reciente. Inicia una campaña para ver los logs.</p>
                   </td>
                 </tr>
               ) : (
-                mktLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-white/5 transition-all group">
+                mktLogs.map((log, index) => (
+                  <tr key={`log-${log.id || 'row'}-${index}`} className="hover:bg-white/5 transition-all group">
                     <td className="px-6 py-4">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${log.status === 'sent' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                         {log.channel === 'WA' ? <Phone size={14}/> : <Mail size={14}/>}
@@ -555,7 +925,12 @@ export default function MktEmisivo({ agenda = [], mktTemplates = [], refresh, me
                       <div className="text-[10px] font-black text-sky-400 uppercase truncate max-w-[150px]">{log.campaign || "S/N"}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-[10px] font-bold text-white uppercase">{log.name}</div>
+                      <div className="text-[10px] font-bold text-white uppercase">{log.name || "S/N"}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-[10px] font-mono font-bold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20 inline-block">
+                        {log.phone ? (log.phone.startsWith('+') ? log.phone : `+${log.phone}`) : "Enviado a agenda"}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">

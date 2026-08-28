@@ -566,7 +566,7 @@ app.get('/explorer/:company/:channel', (req, res) => {
 app.get('/api/wa/qr', async (req, res) => {
     try {
         const instanceName = req.query.instance || 'nico_ventas_wa';
-        const apikey = process.env.AUTHENTICATION_API_KEY || '03d27a0c34fa708178148142d6f5eedc86cd5e3a';
+        const apikey = process.env.AUTHENTICATION_API_KEY || 'PICE-SAAS-DEFAULT-KEY-2026';
         const EVO_URL = 'http://127.0.0.1:8080';
         
         console.log(`[WA] SOLICITUD DE QR PARA: ${instanceName}`);
@@ -1437,7 +1437,7 @@ process.on('unhandledRejection', (reason, promise) => {
 async function syncWhatsappInstances() {
     try {
         console.log('[SYNC] Sincronizando instancias de WhatsApp con la base de datos...');
-        const apikey = process.env.AUTHENTICATION_API_KEY || '03d27a0c34fa708178148142d6f5eedc86cd5e3a';
+        const apikey = process.env.AUTHENTICATION_API_KEY || 'PICE-SAAS-DEFAULT-KEY-2026';
         const EVO_URL = 'http://127.0.0.1:8080';
 
         // 1. Obtener canales de la BD

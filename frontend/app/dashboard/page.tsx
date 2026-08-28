@@ -51,7 +51,9 @@ import {
   Clock,
   Smartphone,
   HeartPulse,
-  Pencil
+  Pencil,
+  DollarSign,
+  Coins
 } from 'lucide-react';
 import MktEmisivo from './components/MktEmisivo';
 import Contactos from './components/Contactos';
@@ -146,6 +148,8 @@ export default function DashboardPage() {
   const [summarizing, setSummarizing] = useState(false);
   const [channelFilter, setChannelFilter] = useState('ALL');
   const [timeFilter, setTimeFilter] = useState('ALL');
+  const [tokenPriceUSD, setTokenPriceUSD] = useState<number>(0.00002);
+  const [wasenderStatus, setWasenderStatus] = useState<string>('stopped');
 
   // Refs for high-frequency access
   const flowRef = React.useRef<any>(null);
@@ -199,7 +203,7 @@ export default function DashboardPage() {
   }, [activeTab, selectedCompany]);
 
   const fetchWhatsAppQR = async (customInstance?: string) => {
-    const instance = customInstance || selectedChannel?.instanceName || connectData.botName;
+    const instance = customInstance || connectData.botName || (showConnectModal === 'whatsapp_mkt' ? 'mkt_colab' : selectedChannel?.instanceName);
     if (!instance) {
       alert("Por favor, ingrese un nombre para la instancia");
       return;
@@ -310,6 +314,9 @@ export default function DashboardPage() {
       const res = await axios.get(`http://${apiHost}:4000/api/data?instance=${inst}&companyId=${cId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      axios.get(`http://${apiHost}:4000/api/data?action=get_wasender_status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => { if (r.data?.success && r.data?.config) setWasenderStatus(r.data.config.status || 'stopped'); })
+        .catch(() => {});
       if (res.data.success) {
         setConfigs(res.data.configs || {});
         console.log(`[FETCH] Inst: ${inst}, CompID: ${cId}, Found: ${res.data.conversations?.length || 0} chats`);
@@ -928,33 +935,249 @@ export default function DashboardPage() {
 
     
     if (activeTab === 'Modelos de IA') {
+      const totalTokens = modelsStats.reduce((acc, m) => acc + (Number(m.tokens_used) || 0), 0);
+      const costPerTokenUSD = tokenPriceUSD !== undefined && tokenPriceUSD >= 0 ? tokenPriceUSD : 0.00002;
+      const totalCostUSD = totalTokens * costPerTokenUSD;
+
+      const ollamaModels = modelsStats.filter(m => 
+        (m.model_name || '').toLowerCase().includes('ollama') || 
+        (m.model_name || '').toLowerCase().includes('local')
+      );
+      const ollamaTokens = ollamaModels.reduce((acc, m) => acc + (Number(m.tokens_used) || 0), 0);
+      const ollamaCostUSD = ollamaTokens * costPerTokenUSD;
+
+      const totalSuccess = modelsStats.reduce((acc, m) => acc + (Number(m.success_count) || 0), 0);
+      const totalFail = modelsStats.reduce((acc, m) => acc + (Number(m.fail_count) || 0), 0);
+      const totalOps = totalSuccess + totalFail;
+      const successRate = totalOps > 0 ? ((totalSuccess / totalOps) * 100).toFixed(1) : '100.0';
+
+      const maxTokens = Math.max(...modelsStats.map(m => Number(m.tokens_used) || 0), 1);
+
       return (
         <div className="p-10 space-y-10 animate-in fade-in duration-500 overflow-y-auto h-[calc(100vh-6rem)] custom-scrollbar">
-          <div className="flex justify-between items-center">
-            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Modelos de IA</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {modelsStats.map((model, i) => (
-              <div key={model.model_name} className="glass p-6 rounded-3xl border border-white/10 space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400"><Brain size={24}/></div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">{i + 1}. {model.model_name}</h3>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest">Tokens: {model.tokens_used}</p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-1 bg-white/5 rounded-2xl p-4">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Éxitos</p>
-                    <p className="text-2xl font-black text-emerald-400">{model.success_count}</p>
-                  </div>
-                  <div className="flex-1 bg-white/5 rounded-2xl p-4">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fallos</p>
-                    <p className="text-2xl font-black text-red-400">{model.fail_count}</p>
-                  </div>
+          {/* Header */}
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400">
+                Modelos de IA & Métricas de Consumo
+              </h2>
+              <p className="text-sm text-slate-400 mt-1">
+                Monitoreo consolidado de volumen de tokens, costos estimados en USD e inferencias locales con Ollama.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3 self-start md:self-auto flex-wrap">
+              {/* Input Box para modificar tarifa por token en vivo */}
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3.5 py-2 rounded-2xl shadow-inner">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Costo x Token (USD):
+                </span>
+                <div className="relative flex items-center">
+                  <span className="text-xs text-emerald-400 font-black mr-1">$</span>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    value={tokenPriceUSD}
+                    onChange={(e) => setTokenPriceUSD(parseFloat(e.target.value) || 0)}
+                    className="w-28 bg-black/50 border border-emerald-500/30 focus:border-emerald-400 rounded-xl px-2.5 py-1 text-xs font-mono font-black text-emerald-300 focus:outline-none transition-all text-right shadow-sm"
+                    placeholder="0.00002"
+                  />
                 </div>
               </div>
-            ))}
+
+              <button
+                onClick={fetchModelsStats}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-bold text-slate-300 transition-all active:scale-95"
+              >
+                <RefreshCw size={14} className="text-blue-400" />
+                <span>Actualizar Datos</span>
+              </button>
+            </div>
+          </div>
+
+          {/* BANNER DE RESUMEN GLOBAL (KPIs de Consumo y Costos en USD) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI 1: TOTAL DE TOKENS */}
+            <div className="glass p-6 rounded-3xl border border-white/10 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Cpu size={80} className="text-blue-400" />
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-400 border border-blue-500/20">
+                  <Cpu size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Tokens Procesados</p>
+                  <p className="text-xs text-blue-400/80 font-bold">Consumo Global Acumulado</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-3xl font-black text-white tracking-tight">
+                  {totalTokens.toLocaleString('es-AR')}
+                </h3>
+                <p className="text-xs text-slate-400">Inferencia en Nube + Servidor Local</p>
+              </div>
+            </div>
+
+            {/* KPI 2: COSTO EQUIVALENTE EN USD */}
+            <div className="glass p-6 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-transparent relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <DollarSign size={80} className="text-emerald-400" />
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 border border-emerald-500/20">
+                  <DollarSign size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Equivalente Estimado USD</p>
+                  <p className="text-xs text-emerald-400/80 font-bold">Costo Inferencia IA</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-3xl font-black text-emerald-400 tracking-tight">
+                  ${totalCostUSD < 0.01 ? totalCostUSD.toFixed(4) : totalCostUSD.toFixed(2)} USD
+                </h3>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <span className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[9px] font-black uppercase">
+                    ${(costPerTokenUSD * 1000).toFixed(4)} / 1K Toks
+                  </span>
+                  <span>Tarifa promedio</span>
+                </div>
+              </div>
+            </div>
+
+            {/* KPI 3: MODELO LOCAL OLLAMA */}
+            <div className="glass p-6 rounded-3xl border border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Brain size={80} className="text-purple-400" />
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-400 border border-purple-500/20">
+                  <Brain size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Modelo Local Ollama</p>
+                  <p className="text-xs text-purple-400/80 font-bold">Cuantificación In-House</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-3xl font-black text-purple-300 tracking-tight">
+                  {ollamaTokens.toLocaleString('es-AR')} <span className="text-sm font-bold text-purple-400/70">toks</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Ahorro local estimado: <span className="text-purple-300 font-bold">${ollamaCostUSD.toFixed(4)} USD</span>
+                </p>
+              </div>
+            </div>
+
+            {/* KPI 4: EFICIENCIA Y OPERACIONES */}
+            <div className="glass p-6 rounded-3xl border border-amber-500/20 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Activity size={80} className="text-amber-400" />
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-400 border border-amber-500/20">
+                  <Activity size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tasa de Éxito Inferencia</p>
+                  <p className="text-xs text-amber-400/80 font-bold">{totalOps} Operaciones Totales</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-3xl font-black text-amber-300 tracking-tight">
+                  {successRate}%
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {totalSuccess} Éxitos | <span className="text-red-400 font-bold">{totalFail} Fallos</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* DETALLE INDIVIDUAL DE MODELOS */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Coins size={18} className="text-blue-400" />
+                <span>Detalle por Modelo de Inteligencia Artificial</span>
+              </h3>
+              <span className="text-xs text-slate-400 font-medium">
+                {modelsStats.length} Modelos Registrados
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {modelsStats.map((model, i) => {
+                const modelToks = Number(model.tokens_used) || 0;
+                const modelCostUSD = modelToks * costPerTokenUSD;
+                const isLocal = (model.model_name || '').toLowerCase().includes('ollama') || (model.model_name || '').toLowerCase().includes('local');
+                const progressPct = Math.min(100, Math.round((modelToks / maxTokens) * 100));
+
+                return (
+                  <div key={model.model_name} className="glass p-6 rounded-3xl border border-white/10 space-y-5 hover:border-white/20 transition-all group relative">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-3 rounded-2xl border ${isLocal ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                          {isLocal ? <Brain size={22}/> : <Cpu size={22}/>}
+                        </div>
+                        <div>
+                          <h4 className="text-base font-bold text-white leading-snug group-hover:text-blue-400 transition-colors">
+                            {i + 1}. {model.model_name}
+                          </h4>
+                          <span className={`inline-block mt-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${
+                            isLocal 
+                              ? 'bg-purple-500/10 text-purple-300 border-purple-500/20' 
+                              : 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+                          }`}>
+                            {isLocal ? 'Inferencia Local Ollama' : 'API Cloud Provider'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tokens & USD Breakdown */}
+                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400 font-bold">Tokens Procesados:</span>
+                        <span className="text-white font-black text-sm">{modelToks.toLocaleString('es-AR')}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                        <span className="text-slate-400 font-bold">Equivalente USD:</span>
+                        <span className="text-emerald-400 font-black text-sm">${modelCostUSD < 0.01 ? modelCostUSD.toFixed(4) : modelCostUSD.toFixed(3)} USD</span>
+                      </div>
+                    </div>
+
+                    {/* Usage Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-slate-400 font-bold">
+                        <span>Participación en consumo</span>
+                        <span>{progressPct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${isLocal ? 'bg-gradient-to-r from-purple-500 to-indigo-400' : 'bg-gradient-to-r from-blue-500 to-emerald-400'}`}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Success / Fail counts */}
+                    <div className="flex gap-3 pt-1">
+                      <div className="flex-1 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-3 text-center">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Éxitos</p>
+                        <p className="text-xl font-black text-emerald-400 mt-0.5">{model.success_count}</p>
+                      </div>
+                      <div className="flex-1 bg-red-500/5 border border-red-500/10 rounded-2xl p-3 text-center">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fallos</p>
+                        <p className="text-xl font-black text-red-400 mt-0.5">{model.fail_count}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       );
@@ -1567,9 +1790,13 @@ export default function DashboardPage() {
                           {(() => {
                             // Combinar Canales de la empresa seleccionada con estado en vivo de Baileys / Instagram
                             const merged = (channels || []).map(ch => {
-                              const live = (allInstances || []).find(i => i.instanceName?.toLowerCase() === ch.instanceName?.toLowerCase());
-                              const isOnline = live?.state === 'open' || live?.state === 'connected' || ch.status === 'connected';
-                              return { ...ch, state: isOnline ? 'open' : (live?.state || ch.status || 'close'), isOnline, livePhone: live?.phone || ch.livePhone };
+                              const instName = ch.instanceName || ch.instance_name || '';
+                              const live = (allInstances || []).find(i => i.instanceName?.toLowerCase() === instName?.toLowerCase());
+                              const isMkt = instName.toLowerCase().includes('mkt') || (ch.platform || '').toLowerCase().includes('mkt');
+                              const isOnline = isMkt 
+                                ? (wasenderStatus === 'connected' || wasenderStatus === 'running' || wasenderStatus === 'qr_ready' || live?.state === 'open' || live?.state === 'connected')
+                                : (live ? (live.state === 'open' || live.state === 'connected') : (ch.status === 'connected' && live?.state !== 'close' && live?.state !== 'disconnected'));
+                              return { ...ch, state: isOnline ? 'open' : (live?.state || 'close'), isOnline, livePhone: live?.phone || ch.livePhone };
                             });
 
                             if (merged.length === 0) {
@@ -2611,7 +2838,8 @@ export default function DashboardPage() {
 
     if (activeTab === 'Conexiones') {
       const platforms = [
-        { id: 'whatsapp', name: 'WhatsApp', icon: <Radio size={24} />, color: 'bg-green-500/10 text-green-400 border-green-500/20' },
+        { id: 'whatsapp', name: 'WhatsApp Oficial (Atención / IA)', icon: <Radio size={24} />, color: 'bg-green-500/10 text-green-400 border-green-500/20' },
+        { id: 'whatsapp_mkt', name: 'WhatsApp Emisivo (Campañas MKT / Anti-Baneo)', icon: <Send size={24} />, color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
         { id: 'telegram', name: 'Telegram', icon: <Send size={24} />, color: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
         { id: 'instagram', name: 'Instagram', icon: <Camera size={24} />, color: 'bg-pink-500/10 text-pink-400 border-pink-500/20' },
         { id: 'linkedin', name: 'LinkedIn', icon: <Globe size={24} />, color: 'bg-blue-600/10 text-blue-500 border-blue-600/20' },
@@ -2641,7 +2869,12 @@ export default function DashboardPage() {
                 </span>
                 
                 <button 
-                  onClick={() => setShowConnectModal(p.id)}
+                  onClick={() => {
+                    setShowConnectModal(p.id);
+                    const initName = p.id === 'whatsapp_mkt' ? 'mkt_colab' : '';
+                    setConnectData(p.id === 'whatsapp_mkt' ? { botName: 'mkt_colab', waMethod: 'qr' } : {});
+                    fetchWhatsAppQR(initName);
+                  }}
                   className="mt-6 w-full py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all text-white"
                 >
                   {channels.some(c => c.platform === p.id) ? 'GESTIONAR' : 'CONECTAR'}
@@ -2680,13 +2913,13 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="space-y-6">
-                    {showConnectModal === 'whatsapp' ? (
+                    {showConnectModal === 'whatsapp' || showConnectModal === 'whatsapp_mkt' ? (
                       <div className="flex flex-col items-center gap-8">
                         <div className="w-full space-y-4">
                            <InputGroup 
                             label="NOMBRE DE LA INSTANCIA (ÚNICO)" 
-                            placeholder="ej: ventas_central" 
-                            value={connectData.botName || ''}
+                            placeholder={showConnectModal === 'whatsapp_mkt' ? "mkt_colab" : "ej: ventas_central"} 
+                            value={connectData.botName || (showConnectModal === 'whatsapp_mkt' ? 'mkt_colab' : '')}
                             onChange={(v) => setConnectData({...connectData, botName: v})} 
                            />
                         </div>
@@ -2705,11 +2938,11 @@ export default function DashboardPage() {
 
                         <div className="w-full flex gap-2 p-1 bg-white/5 rounded-xl">
                           <button 
-                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${connectData.waMethod !== 'api' ? 'bg-sky-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${connectData.waMethod !== 'api' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                             onClick={() => setConnectData({...connectData, waMethod: 'qr'})}
-                          >QR (Baileys)</button>
+                          >{showConnectModal === 'whatsapp_mkt' ? 'MOTOR EMISOR (WASENDER / ANTI-BANEO)' : 'QR (Baileys)'}</button>
                           <button 
-                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${connectData.waMethod === 'api' ? 'bg-sky-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${connectData.waMethod === 'api' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                             onClick={() => setConnectData({...connectData, waMethod: 'api'})}
                           >Meta Cloud API</button>
                         </div>
@@ -2757,7 +2990,10 @@ export default function DashboardPage() {
 
                             <div className="w-full space-y-4">
                                <button 
-                                 onClick={() => fetchWhatsAppQR(connectData.botName)}
+                                 onClick={() => {
+                                    const targetBot = connectData.botName || (showConnectModal === 'whatsapp_mkt' ? 'mkt_colab' : '');
+                                    fetchWhatsAppQR(targetBot);
+                                  }}
                                  className="w-full py-4 bg-sky-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-sky-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
                                >
                                  <Radio size={16} /> {qrData?.status === 'connected' || qrData?.status === 'open' ? 'RE-VINCULAR LÍNEA' : 'OBTENER NUEVO QR'}

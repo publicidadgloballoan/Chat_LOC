@@ -4480,9 +4480,17 @@ def webhook():
         logger.info(f" [WEBHOOK-RAW] Data: {json.dumps(data)[:200]}...")
         inst = data.get('instance')
         msg_obj = data.get('data', {})
-        jid = msg_obj.get('key', {}).get('remoteJid', '')
+        key_obj = msg_obj.get('key', {})
+        jid = key_obj.get('remoteJid', '')
+        sender_pn = key_obj.get('senderPn', '') or key_obj.get('participant', '')
         if not jid or 'broadcast' in jid or jid.endswith('@g.us'): return "ignore group/broadcast", 200
-        phone = jid.split('@')[0] if jid and '@' in jid else jid
+        
+        if sender_pn and '@' in sender_pn:
+            phone = sender_pn.split('@')[0]
+        elif jid and '@' in jid:
+            phone = jid.split('@')[0]
+        else:
+            phone = jid
         
         # Dedup Persistente
         mid = msg_obj.get('key', {}).get('id')

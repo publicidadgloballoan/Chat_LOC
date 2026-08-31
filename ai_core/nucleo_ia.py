@@ -2608,15 +2608,27 @@ def handle_api_data():
     if inst_check == 'ALL':
         if comp_id:
             c.execute("""
-                SELECT phone, state, manual, name, channel, instance, pending_handoff, last_summary, last_incoming_at, last_outgoing_at, last_origin
-                FROM sessions 
-                WHERE instance IN (SELECT instance FROM connections WHERE company_id = ?)
-                ORDER BY pending_handoff DESC, last_incoming_at DESC LIMIT 500
+                SELECT s.phone, s.state, s.manual, COALESCE(s.name, a.name, s.phone) as display_name, s.channel, s.instance, s.pending_handoff, s.last_summary, s.last_incoming_at, s.last_outgoing_at, s.last_origin
+                FROM sessions s
+                LEFT JOIN contacts_agenda a ON s.phone = a.phone
+                WHERE s.instance IN (SELECT instance FROM connections WHERE company_id = ?)
+                ORDER BY s.pending_handoff DESC, s.last_incoming_at DESC LIMIT 500
             """, (comp_id,))
         else:
-            c.execute("SELECT phone, state, manual, name, channel, instance, pending_handoff, last_summary, last_incoming_at, last_outgoing_at, last_origin FROM sessions ORDER BY pending_handoff DESC, last_incoming_at DESC LIMIT 500")
+            c.execute("""
+                SELECT s.phone, s.state, s.manual, COALESCE(s.name, a.name, s.phone) as display_name, s.channel, s.instance, s.pending_handoff, s.last_summary, s.last_incoming_at, s.last_outgoing_at, s.last_origin 
+                FROM sessions s
+                LEFT JOIN contacts_agenda a ON s.phone = a.phone
+                ORDER BY s.pending_handoff DESC, s.last_incoming_at DESC LIMIT 500
+            """)
     else:
-        c.execute("SELECT phone, state, manual, name, channel, instance, pending_handoff, last_summary, last_incoming_at, last_outgoing_at, last_origin FROM sessions WHERE instance=? ORDER BY pending_handoff DESC, last_incoming_at DESC LIMIT 500", (inst_check,))
+        c.execute("""
+            SELECT s.phone, s.state, s.manual, COALESCE(s.name, a.name, s.phone) as display_name, s.channel, s.instance, s.pending_handoff, s.last_summary, s.last_incoming_at, s.last_outgoing_at, s.last_origin 
+            FROM sessions s
+            LEFT JOIN contacts_agenda a ON s.phone = a.phone
+            WHERE s.instance=? 
+            ORDER BY s.pending_handoff DESC, s.last_incoming_at DESC LIMIT 500
+        """, (inst_check,))
     
     sessions = []
     now = time.time()

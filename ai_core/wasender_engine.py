@@ -145,43 +145,97 @@ class WASenderEngine:
         elif clean_phone.startswith("54") and not clean_phone.startswith("549") and len(clean_phone) == 12:
             clean_phone = "549" + clean_phone[2:]
             
-        print(f"[WASENDER] Sending message to {clean_phone} via DOM...")
-        encoded_text = urllib.parse.quote(text)
-        target_url = f"https://web.whatsapp.com/send?phone={clean_phone}&text={encoded_text}"
-        
+        print(f"[WASENDER] Sending message to {clean_phone} via Full DOM UI Search (No URL navigation)...")
         try:
-            await self.page.goto(target_url, wait_until="domcontentloaded", timeout=45000)
-            await asyncio.sleep(4)
-            
-            # Wait for main send button or text input
-            send_btn = None
-            for selector in [
-                'button[aria-label="Enviar"]',
-                'button[aria-label="Send"]',
-                'span[data-icon="send"]',
-                'button._ak4w'
-            ]:
+            # 1. Click New Chat button
+            new_chat_btn = None
+            for sel in ['span[data-icon="new-chat-outline"]', 'span[data-icon="chat"]', 'button[aria-label="Nuevo chat"]', 'button[aria-label="New chat"]']:
                 try:
-                    send_btn = await self.page.wait_for_selector(selector, timeout=8000)
-                    if send_btn:
+                    new_chat_btn = await self.page.wait_for_selector(sel, timeout=3000)
+                    if new_chat_btn:
+                        await new_chat_btn.click()
                         break
                 except Exception:
                     pass
             
-            if send_btn:
-                # Add human keystroke timing simulation
-                await asyncio.sleep(1.5)
-                await send_btn.click()
-                await asyncio.sleep(3)
-                print(f"[WASENDER] Message sent successfully to {clean_phone}!")
-                return {"success": True, "phone": clean_phone}
-            else:
-                # Fallback: Press Enter on active input box
+            await asyncio.sleep(1.5)
+
+            # 2. Find Search Box
+            search_input = None
+            for sel in ['div[contenteditable="true"][data-tab="3"]', 'div[contenteditable="true"]', 'input[type="text"]']:
+                try:
+                    search_input = await self.page.wait_for_selector(sel, timeout=3000)
+                    if search_input:
+                        break
+                except Exception:
+                    pass
+
+            if not search_input:
+                # Fallback: click general search
+                try:
+                    search_btn = await self.page.query_selector('div[contenteditable="true"]')
+                    if search_btn:
+                        search_input = search_btn
+                except Exception:
+                    pass
+
+            if search_input:
+                await search_input.focus()
+                await search_input.fill("")
+                # Type phone number with human delay
+                await search_input.type(clean_phone, delay=120)
+                await asyncio.sleep(2.5)
+
+                # Press Enter to open chat
                 await self.page.keyboard.press("Enter")
-                await asyncio.sleep(3)
-                print(f"[WASENDER] Sent via Enter key fallback to {clean_phone}!")
-                return {"success": True, "phone": clean_phone}
-                
+                await asyncio.sleep(2.5)
+
+                # 3. Focus Message Box and Type Message
+                msg_box = None
+                for sel in ['div[contenteditable="true"][data-tab="10"]', 'div[contenteditable="true"][aria-label="Escribe un mensaje aquí"]', 'div[contenteditable="true"][aria-label="Type a message"]', 'footer div[contenteditable="true"]']:
+                    try:
+                        msg_box = await self.page.wait_for_selector(sel, timeout=4000)
+                        if msg_box:
+                            break
+                    except Exception:
+                        pass
+
+                if not msg_box:
+                    msg_box = await self.page.query_selector('footer div[contenteditable="true"]')
+
+                if msg_box:
+                    await msg_box.focus()
+                    await msg_box.type(text, delay=25)
+                    await asyncio.sleep(1.5)
+
+                    # Click Send or Press Enter
+                    send_btn = None
+                    for sel in ['button[aria-label="Enviar"]', 'button[aria-label="Send"]', 'span[data-icon="send"]']:
+                        try:
+                            send_btn = await self.page.query_selector(sel)
+                            if send_btn:
+                                await send_btn.click()
+                                break
+                        except Exception:
+                            pass
+
+                    if not send_btn:
+                        await self.page.keyboard.press("Enter")
+
+                    await asyncio.sleep(3)
+                    print(f"[WASENDER] Sent successfully via DOM Search UI to {clean_phone}!")
+                    return {"success": True, "phone": clean_phone}
+
+            # Ultimate fallback if DOM search fails
+            print(f"[WASENDER] DOM Search fallback: Navigating via target URL...")
+            encoded_text = urllib.parse.quote(text)
+            target_url = f"https://web.whatsapp.com/send?phone={clean_phone}&text={encoded_text}"
+            await self.page.goto(target_url, wait_until="domcontentloaded", timeout=45000)
+            await asyncio.sleep(4)
+            await self.page.keyboard.press("Enter")
+            await asyncio.sleep(3)
+            return {"success": True, "phone": clean_phone}
+
         except Exception as e:
             print(f"[WASENDER] Error sending to {clean_phone}: {e}")
             return {"success": False, "error": str(e), "phone": clean_phone}

@@ -122,19 +122,16 @@ class WASenderEngine:
     async def is_logged_in(self):
         if not self.page:
             return False
-        try:
-            pane = await self.page.query_selector('#pane-side')
-            if pane:
-                return True
-            search = await self.page.query_selector('div[contenteditable="true"]')
-            if search:
-                return True
-            canvas = await self.page.query_selector('canvas')
-            if canvas:
-                return False
-            return False
-        except Exception:
-            return False
+        for attempt in range(10):
+            try:
+                for selector in ['#pane-side', 'div[contenteditable="true"]', 'div[role="textbox"]', 'span[data-icon="chat"]', 'header']:
+                    el = await self.page.query_selector(selector)
+                    if el:
+                        return True
+                await asyncio.sleep(2)
+            except Exception:
+                await asyncio.sleep(1)
+        return False
 
     async def send_message(self, phone: str, text: str):
         if not self.page:

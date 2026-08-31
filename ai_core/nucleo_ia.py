@@ -1419,8 +1419,14 @@ def handle_api_data():
                 if camp_id and new_status:
                     if new_status == 'active':
                         c.execute("UPDATE mkt_campaigns SET status='paused' WHERE status != 'completed'")
-                    c.execute("UPDATE mkt_campaigns SET status=? WHERE id=?", (new_status, camp_id))
-                    conn.commit()
+                        c.execute("UPDATE mkt_campaigns SET status='active' WHERE id=?", (camp_id,))
+                        conn.commit()
+                        # Trigger background campaign worker
+                        import subprocess, sys
+                        subprocess.Popen([sys.executable, r"c:\SaaSIA\run_mkt_sequential_orchestrator.py"], cwd=r"c:\SaaSIA")
+                    else:
+                        c.execute("UPDATE mkt_campaigns SET status=? WHERE id=?", (new_status, camp_id))
+                        conn.commit()
                     return jsonify({"success": True, "campaignId": camp_id, "status": new_status})
                 return jsonify({"success": False, "error": "campaignId and status required"})
             except Exception as e: return jsonify({"success": False, "error": str(e)})

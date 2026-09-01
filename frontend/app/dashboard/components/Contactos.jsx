@@ -41,8 +41,49 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
   const [ocrNumbers, setOcrNumbers] = useState([]);
   const [ocrReference, setOcrReference] = useState(`Captura Imagen ${new Date().toLocaleDateString()}`);
   const [ocrGroup, setOcrGroup] = useState('CLIENTES');
+  
+  // Cross-Company Import State
+  const [showCrossImport, setShowCrossImport] = useState(false);
+  const [companiesList, setCompaniesList] = useState([]);
+  const [sourceCompanyId, setSourceCompanyId] = useState('');
+  const [tagLabelInput, setTagLabelInput] = useState('MKT_IMPORTADO');
+  
   const ocrFileInputRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await axios.get(`http://${apiHost}:4000/api/data?instance=ALL`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data?.companies) {
+        setCompaniesList(res.data.companies);
+      }
+    } catch (e) { console.error("Error fetching companies list", e); }
+  };
+
+  const handleCrossCompanyImport = async () => {
+    if (!sourceCompanyId) { alert("Selecciona la empresa de origen"); return; }
+    setLoading(true);
+    try {
+      const res = await axios.post(`http://${apiHost}:4000/api/data`, {
+        action: 'import_chats_between_companies',
+        sourceCompanyId,
+        targetCompanyId: selectedCompany?.id,
+        tagLabel: tagLabelInput || 'MKT_IMPORTADO'
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setLoading(false);
+      if (res.data.success) {
+        alert(res.data.message);
+        setShowCrossImport(false);
+        if (refresh) refresh();
+        fetchRubros();
+      } else {
+        alert("Error: " + (res.data.error || "No se pudo completar la importación"));
+      }
+    } catch (e) {
+      setLoading(false);
+      alert("Error de conexión al importar chats entre empresas");
+    }
+  };
 
   const fetchRubros = async () => {
     try {
@@ -53,6 +94,7 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
 
   React.useEffect(() => {
     fetchRubros();
+    fetchCompanies();
   }, [apiHost, token]);
 
   const handleAddRubro = async () => {
@@ -384,6 +426,13 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
             className="px-6 py-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-3 shadow-lg shadow-emerald-500/10"
           >
             <Upload size={16} className="text-emerald-400" /> ESCANEAR CAPTURA (OCR)
+          </button>
+          <button 
+            onClick={() => setShowCrossImport(true)}
+            className="px-6 py-4 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-cyan-500/20 transition-all flex items-center gap-3 shadow-lg shadow-cyan-500/10"
+            title="Importar chats y contactos desde otras empresas (ej: COMUNICACIONMKT)"
+          >
+            <Link size={16} className="text-cyan-400" /> IMPORTAR DE EMPRESA
           </button>
           <button 
             onClick={() => setShowImport(true)}
@@ -901,6 +950,75 @@ export default function Contactos({ agenda = [], mediaManifest = [], apiHost, to
               )}
             </motion.div>
           </div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Modal Importar de Otra Empresa */}
+      {mounted && createPortal(
+        <AnimatePresence>
+          {showCrossImport && (
+            <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 lg:p-10">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                className="glass p-8 lg:p-10 rounded-[3rem] border border-cyan-500/30 w-full max-w-xl space-y-6 flex flex-col"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                     <div className="p-3 bg-cyan-500/20 rounded-2xl text-cyan-400"><Link size={24}/></div>
+                     <div>
+                       <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Importar Chats entre Empresas</h3>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase">Copiar chats y contactos hacia {selectedCompany?.name || 'la empresa actual'}</p>
+                     </div>
+                  </div>
+                  <button onClick={() => setShowCrossImport(false)} className="text-slate-500 hover:text-white transition-all"><X size={24} /></button>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Empresa de Origen (Desde donde importar)</label>
+                    <select 
+                      value={sourceCompanyId} 
+                      onChange={e => setSourceCompanyId(e.target.value)} 
+                      className="w-full bg-[#0f172a] border border-white/10 rounded-2xl px-5 py-4 text-white font-bold outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="">-- Selecciona Empresa de Origen --</option>
+                      {companiesList.filter(c => c.id !== selectedCompany?.id).map(c => (
+                        <option key={c.id} value={c.id}>{c.name} (Empresa #{c.id})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Etiqueta / Origen del Grupo CRM</label>
+                    <input 
+                      value={tagLabelInput} 
+                      onChange={e => setTagLabelInput(e.target.value)} 
+                      placeholder="Ej: MKT_IMPORTADO" 
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:border-cyan-500 transition-all" 
+                    />
+                  </div>
+
+                  <div className="p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
+                    <p className="text-[10px] font-bold text-cyan-300">
+                      ℹ️ Esta acción agrupará e importará todos los chats y contactos capturados en la empresa seleccionada directamente en {selectedCompany?.name || 'esta empresa'}, asignándoles la etiqueta especificada para fácil filtrado.
+                    </p>
+                  </div>
+
+                  <div className="pt-4 flex justify-end gap-4">
+                    <button onClick={() => setShowCrossImport(false)} className="px-6 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-[10px] uppercase">Cancelar</button>
+                    <button 
+                      onClick={handleCrossCompanyImport} 
+                      disabled={loading || !sourceCompanyId}
+                      className="px-8 py-4 bg-cyan-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-cyan-500/20 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? <Activity className="animate-spin" size={16} /> : <><CheckCircle2 size={16}/> CONFIRMAR IMPORTACIÓN</>}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
         </AnimatePresence>,
         document.body
       )}

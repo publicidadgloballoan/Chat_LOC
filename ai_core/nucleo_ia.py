@@ -1287,6 +1287,87 @@ def handle_api_data():
             return jsonify({"success": True, "message": f"Motor Chromium lanzado en tu pantalla (Modo Debug Visible)", "pid": proc.pid})
         except Exception as e: return jsonify({"success": False, "error": str(e)})
 
+    if action == 'import_chats_between_companies':
+        try:
+            source_comp_id = data.get('sourceCompanyId') or request.args.get('sourceCompanyId')
+            target_comp_id = data.get('targetCompanyId') or request.args.get('targetCompanyId')
+            tag_label = data.get('tagLabel') or request.args.get('tagLabel') or 'MKT_IMPORTADO'
+            
+            if not source_comp_id or not target_comp_id:
+                return jsonify({"success": False, "error": "sourceCompanyId and targetCompanyId required"})
+            
+            source_comp_id = int(source_comp_id)
+            target_comp_id = int(target_comp_id)
+            
+            # 1. Obtenemos nombre de la empresa de origen
+            c.execute("SELECT name FROM companies WHERE id=?", (source_comp_id,))
+            row_sc = c.fetchone()
+            source_name = row_sc[0] if row_sc else f"Empresa_{source_comp_id}"
+            group_tag = f"{tag_label} ({source_name})"
+            
+            # 2. Copiar/Agrupar contactos de contacts_agenda de origen a destino
+            c.execute("""
+                SELECT name, phone, email, instagram, facebook, linkedin, telegram, dni, address, cbu, alias, bank, branch, last_channel, metadata
+                FROM contacts_agenda 
+                WHERE company_id=?
+            """, (source_comp_id,))
+            contacts_source = c.fetchall()
+            
+            imported_agenda_cnt = 0
+            for c_row in contacts_source:
+                c_name, c_phone, c_email, c_ig, c_fb, c_li, c_tg, c_dni, c_addr, c_cbu, c_alias, c_bank, c_branch, c_chan, c_meta = c_row
+                if not c_phone: continue
+                
+                c.execute("""
+                    INSERT INTO contacts_agenda (name, phone, email, instagram, facebook, linkedin, telegram, dni, address, cbu, alias, bank, branch, last_channel, origin, group_name, company_id, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(phone) DO UPDATE SET
+                        company_id=excluded.company_id,
+                        group_name=excluded.group_name,
+                        origin=COALESCE(contacts_agenda.origin, excluded.origin),
+                        name=CASE WHEN contacts_agenda.name IS NULL OR contacts_agenda.name = '' OR contacts_agenda.name LIKE 'Candidato%' THEN excluded.name ELSE contacts_agenda.name END
+                """, (c_name, c_phone, c_email, c_ig, c_fb, c_li, c_tg, c_dni, c_addr, c_cbu, c_alias, c_bank, c_branch, c_chan or 'WHATSAPP', f"IMPORTADO_{source_name}", group_tag, target_comp_id, c_meta))
+                imported_agenda_cnt += 1
+            
+            # 3. Copiar/Agrupar sesiones para que aparezcan en Conversaciones/Atención Humana del destino
+            c.execute("SELECT instance FROM connections WHERE company_id=? LIMIT 1", (target_comp_id,))
+            row_tc = c.fetchone()
+            target_inst = row_tc[0] if row_tc else 'colab'
+            
+            c.execute("""
+                SELECT phone, state, manual, name, channel, pending_handoff, last_summary, last_incoming_at, last_outgoing_at
+                FROM sessions
+                WHERE instance IN (SELECT instance FROM connections WHERE company_id=?)
+            """, (source_comp_id,))
+            sessions_source = c.fetchall()
+            
+            imported_sess_cnt = 0
+            for s_row in sessions_source:
+                s_phone, s_state, s_manual, s_name, s_chan, s_handoff, s_summary, s_inc, s_out = s_row
+                if not s_phone: continue
+                
+                tag_summary = f"[{group_tag}] {s_summary or 'Chat MKT importado'}"
+                c.execute("""
+                    INSERT INTO sessions (phone, instance, state, manual, name, channel, pending_handoff, last_summary, last_incoming_at, last_outgoing_at, last_origin)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(phone, instance) DO UPDATE SET
+                        manual=excluded.manual,
+                        pending_handoff=excluded.pending_handoff,
+                        last_summary=excluded.last_summary,
+                        name=CASE WHEN sessions.name IS NULL OR sessions.name = '' THEN excluded.name ELSE sessions.name END
+                """, (s_phone, target_inst, s_state or 'MENU', s_manual or 0, s_name, s_chan or 'WA', s_handoff or 0, tag_summary, s_inc, s_out, f"IMPORTADO_{source_name}"))
+                imported_sess_cnt += 1
+            
+            conn.commit()
+            return jsonify({
+                "success": True, 
+                "importedContacts": imported_agenda_cnt,
+                "importedSessions": imported_sess_cnt,
+                "message": f"¡Éxito! Se importaron {imported_agenda_cnt} contactos y {imported_sess_cnt} chats etiquetados como '{group_tag}'"
+            })
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
+
     if request.method == 'GET' and action:
         if action == 'get_mkt_logs':
             try:
@@ -1430,6 +1511,87 @@ def handle_api_data():
                     return jsonify({"success": True, "campaignId": camp_id, "status": new_status})
                 return jsonify({"success": False, "error": "campaignId and status required"})
             except Exception as e: return jsonify({"success": False, "error": str(e)})
+
+        if action == 'import_chats_between_companies':
+            try:
+                source_comp_id = data.get('sourceCompanyId') or request.args.get('sourceCompanyId')
+                target_comp_id = data.get('targetCompanyId') or request.args.get('targetCompanyId') or comp_id
+                tag_label = data.get('tagLabel') or request.args.get('tagLabel') or 'MKT_IMPORTADO'
+                
+                if not source_comp_id or not target_comp_id:
+                    return jsonify({"success": False, "error": "sourceCompanyId and targetCompanyId required"})
+                
+                source_comp_id = int(source_comp_id)
+                target_comp_id = int(target_comp_id)
+                
+                # 1. Obtenemos nombre de la empresa de origen
+                c.execute("SELECT name FROM companies WHERE id=?", (source_comp_id,))
+                row_sc = c.fetchone()
+                source_name = row_sc[0] if row_sc else f"Empresa_{source_comp_id}"
+                group_tag = f"{tag_label} ({source_name})"
+                
+                # 2. Copiar/Agrupar contactos de contacts_agenda de origen a destino
+                c.execute("""
+                    SELECT name, phone, email, instagram, facebook, linkedin, telegram, dni, address, cbu, alias, bank, branch, last_channel, metadata
+                    FROM contacts_agenda 
+                    WHERE company_id=?
+                """, (source_comp_id,))
+                contacts_source = c.fetchall()
+                
+                imported_agenda_cnt = 0
+                for c_row in contacts_source:
+                    c_name, c_phone, c_email, c_ig, c_fb, c_li, c_tg, c_dni, c_addr, c_cbu, c_alias, c_bank, c_branch, c_chan, c_meta = c_row
+                    if not c_phone: continue
+                    
+                    c.execute("""
+                        INSERT INTO contacts_agenda (name, phone, email, instagram, facebook, linkedin, telegram, dni, address, cbu, alias, bank, branch, last_channel, origin, group_name, company_id, metadata)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(phone) DO UPDATE SET
+                            company_id=excluded.company_id,
+                            group_name=excluded.group_name,
+                            origin=COALESCE(contacts_agenda.origin, excluded.origin),
+                            name=CASE WHEN contacts_agenda.name IS NULL OR contacts_agenda.name = '' OR contacts_agenda.name LIKE 'Candidato%' THEN excluded.name ELSE contacts_agenda.name END
+                    """, (c_name, c_phone, c_email, c_ig, c_fb, c_li, c_tg, c_dni, c_addr, c_cbu, c_alias, c_bank, c_branch, c_chan or 'WHATSAPP', f"IMPORTADO_{source_name}", group_tag, target_comp_id, c_meta))
+                    imported_agenda_cnt += 1
+                
+                # 3. Copiar/Agrupar sesiones para que aparezcan en Conversaciones/Atención Humana del destino
+                c.execute("SELECT instance FROM connections WHERE company_id=? LIMIT 1", (target_comp_id,))
+                row_tc = c.fetchone()
+                target_inst = row_tc[0] if row_tc else 'colab'
+                
+                c.execute("""
+                    SELECT phone, state, manual, name, channel, pending_handoff, last_summary, last_incoming_at, last_outgoing_at
+                    FROM sessions
+                    WHERE instance IN (SELECT instance FROM connections WHERE company_id=?)
+                """, (source_comp_id,))
+                sessions_source = c.fetchall()
+                
+                imported_sess_cnt = 0
+                for s_row in sessions_source:
+                    s_phone, s_state, s_manual, s_name, s_chan, s_handoff, s_summary, s_inc, s_out = s_row
+                    if not s_phone: continue
+                    
+                    tag_summary = f"[{group_tag}] {s_summary or 'Chat MKT importado'}"
+                    c.execute("""
+                        INSERT INTO sessions (phone, instance, state, manual, name, channel, pending_handoff, last_summary, last_incoming_at, last_outgoing_at, last_origin)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(phone, instance) DO UPDATE SET
+                            manual=excluded.manual,
+                            pending_handoff=excluded.pending_handoff,
+                            last_summary=excluded.last_summary,
+                            name=CASE WHEN sessions.name IS NULL OR sessions.name = '' THEN excluded.name ELSE sessions.name END
+                    """, (s_phone, target_inst, s_state or 'MENU', s_manual or 0, s_name, s_chan or 'WA', s_handoff or 0, tag_summary, s_inc, s_out, f"IMPORTADO_{source_name}"))
+                    imported_sess_cnt += 1
+                
+                conn.commit()
+                return jsonify({
+                    "success": True, 
+                    "importedContacts": imported_agenda_cnt,
+                    "importedSessions": imported_sess_cnt,
+                    "message": f"¡Éxito! Se importaron {imported_agenda_cnt} contactos y {imported_sess_cnt} chats etiquetados como '{group_tag}'"
+                })
+            except Exception as e:
+                return jsonify({"success": False, "error": str(e)})
 
         if action == 'get_dash_state':
             try:

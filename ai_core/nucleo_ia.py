@@ -1287,6 +1287,18 @@ def handle_api_data():
             return jsonify({"success": True, "message": f"Motor Chromium lanzado en tu pantalla (Modo Debug Visible)", "pid": proc.pid})
         except Exception as e: return jsonify({"success": False, "error": str(e)})
 
+    if action == 'sync_google_sheet_pricing':
+        try:
+            import sync_iabox_prices
+            ok, items_or_err = sync_iabox_prices.sync_prices()
+            if ok:
+                pricing_p = r"c:\SaaSIA\ai_core\config\company_3\configs\pricing.json"
+                pr_data = json.load(open(pricing_p, "r", encoding="utf-8")) if os.path.exists(pricing_p) else {}
+                return jsonify({"success": True, "pricing": pr_data, "message": "Precios sincronizados exitosamente desde Google Sheets"})
+            else:
+                return jsonify({"success": False, "error": f"Error al sincronizar: {items_or_err}"})
+        except Exception as e: return jsonify({"success": False, "error": str(e)})
+
     if action == 'import_chats_between_companies':
         try:
             source_comp_id = data.get('sourceCompanyId') or request.args.get('sourceCompanyId')
@@ -3301,11 +3313,16 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                         pricing_lines = []
                         for b in items_list:
                             if isinstance(b, dict) and b.get('name'):
-                                p = b.get('price')
-                                p_fmt = f"${p:,}" if isinstance(p, (int, float)) else str(p or 'Consultar')
-                                pricing_lines.append(f"- {b.get('name')}: {p_fmt}")
+                                b_name = b.get('name')
+                                b_sec = f" ({b.get('sector')})" if b.get('sector') and b.get('sector') not in b_name else ""
+                                b_meas = f" | Medidas: {b.get('measures')}" if b.get('measures') else ""
+                                b_surf = f" ({b.get('surface')})" if b.get('surface') else ""
+                                b_net = f" | Precio Neto (+IVA): {b.get('price_net')}" if b.get('price_net') else ""
+                                b_promo = f" | Oferta 3 meses (-30%): {b.get('price_promo_3m')}" if b.get('price_promo_3m') and b.get('price_promo_3m') != '-' else ""
+                                b_usd = f" | USD: {b.get('price_usd')}" if b.get('price_usd') else ""
+                                pricing_lines.append(f"- {b_name}{b_sec}{b_meas}{b_surf}{b_net}{b_promo}{b_usd}")
                         pricing_txt = "\n".join(pricing_lines)
-                        ia_prompt += f"\n\n--- CATÁLOGO OFICIAL DE PRECIOS (LEER ESTRICTAMENTE) ---\n{pricing_txt}\n-----------------------------------\n"
+                        ia_prompt += f"\n\n--- CATÁLOGO OFICIAL DE PRECIOS Y DISPONIBILIDAD (LEER ESTRICTAMENTE) ---\n{pricing_txt}\n-----------------------------------\n"
             except Exception as pr_err:
                 logger.error(f"[INJECT-PRICING ERROR] {pr_err}")
 

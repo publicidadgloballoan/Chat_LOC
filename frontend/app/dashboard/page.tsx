@@ -2639,17 +2639,80 @@ export default function DashboardPage() {
                  </div>
               </div>
 
-              {/* MÓDULO 2: PRECIOS (ESTRUCTURADO) */}
+              {/* MÓDULO 2: PRECIOS (ESTRUCTURADO & GOOGLE SHEETS) */}
               <div className="glass p-10 rounded-[3rem] border border-white/10 space-y-6">
-                 <div className="flex items-center justify-between">
+                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
-                       <LayoutDashboard size={18} className="text-green-400" /> 2. Estructura de Precios
+                       <LayoutDashboard size={18} className="text-green-400" /> 2. Estructura de Precios (Planilla Google Sheets)
                     </h3>
-                    <button 
-                      onClick={() => handleSaveStructured('pricing', structuredKnowledge.pricing)}
-                      className="text-[10px] font-black text-green-400 uppercase tracking-widest border border-green-400/20 px-4 py-2 rounded-xl hover:bg-green-400/10 transition-all"
-                    >ACTUALIZAR VALORES</button>
+                    <div className="flex items-center gap-3">
+                       <button 
+                         onClick={async () => {
+                           try {
+                             const token = localStorage.getItem('PICE SaaS_token');
+                             const apiHost = window.location.hostname;
+                             const res = await axios.post(`http://${apiHost}:5000/api/data`, { action: 'sync_google_sheet_pricing' }, { headers: { Authorization: `Bearer ${token}` } });
+                             if (res.data?.success) {
+                               alert('✅ Precios sincronizados exitosamente desde la planilla de Google Sheets!');
+                               fetchData();
+                             } else {
+                               alert('❌ Error al sincronizar: ' + (res.data?.error || 'Desconocido'));
+                             }
+                           } catch (err: any) {
+                             alert('❌ Error de red al sincronizar: ' + err.message);
+                           }
+                         }}
+                         className="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/10 border border-amber-500/30 px-4 py-2 rounded-xl hover:bg-amber-500/20 transition-all flex items-center gap-2"
+                       >
+                         🔄 Sincronizar Google Sheet
+                       </button>
+                       <button 
+                         onClick={() => handleSaveStructured('pricing', structuredKnowledge.pricing)}
+                         className="text-[10px] font-black text-green-400 uppercase tracking-widest border border-green-400/20 px-4 py-2 rounded-xl hover:bg-green-400/10 transition-all"
+                       >
+                         ACTUALIZAR VALORES
+                       </button>
+                    </div>
                  </div>
+
+                 {/* TABLA DE PRECIOS DEL GOOGLE SHEET */}
+                 {(() => {
+                    const sheetItems = configs?.training?.pricing?.data?.items || configs?.training?.pricing?.items || [];
+                    if (sheetItems.length > 0) {
+                       return (
+                          <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-1">
+                             <table className="w-full text-left border-collapse">
+                                <thead className="bg-white/5 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-white/10">
+                                   <tr>
+                                      <th className="p-3">Box / Nombre</th>
+                                      <th className="p-3">Sector / Categoría</th>
+                                      <th className="p-3">Medidas</th>
+                                      <th className="p-3">Superficie</th>
+                                      <th className="p-3 text-emerald-400">Precio Neto (+IVA)</th>
+                                      <th className="p-3 text-amber-400">Promo 3 Meses (-30%)</th>
+                                      <th className="p-3 text-sky-400">Precio USD</th>
+                                   </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                   {sheetItems.map((item: any, idx: number) => (
+                                      <tr key={idx} className="hover:bg-white/5 transition-all text-xs font-semibold text-slate-200">
+                                         <td className="p-3 font-bold text-white">{item.box || item.name}</td>
+                                         <td className="p-3 text-slate-300">{item.sector || '-'}</td>
+                                         <td className="p-3 font-mono text-slate-400">{item.measures || '-'}</td>
+                                         <td className="p-3 text-slate-300">{item.surface || '-'}</td>
+                                         <td className="p-3 font-bold text-emerald-400">{item.price_net || item.price || '-'}</td>
+                                         <td className="p-3 font-bold text-amber-400">{item.price_promo_3m || '-'}</td>
+                                         <td className="p-3 font-mono text-sky-300">{item.price_usd || '-'}</td>
+                                      </tr>
+                                   ))}
+                                </tbody>
+                             </table>
+                          </div>
+                       );
+                    }
+                    return null;
+                 })()}
+
                  <div className="grid grid-cols-2 gap-6">
                     <InputGroup label="PRECIO EFECTIVO ($)" value={structuredKnowledge.pricing?.cashPrice || ''} onChange={(v) => setStructuredKnowledge({...structuredKnowledge, pricing: {...structuredKnowledge.pricing, cashPrice: v}})} />
                     <InputGroup label="PRECIO LISTA / IVA ($)" value={structuredKnowledge.pricing?.listPrice || ''} onChange={(v) => setStructuredKnowledge({...structuredKnowledge, pricing: {...structuredKnowledge.pricing, listPrice: v}})} />
@@ -2668,7 +2731,7 @@ export default function DashboardPage() {
                  </div>
                  <div className="p-4 bg-green-500/5 border border-green-500/10 rounded-2xl">
                     <p className="text-[9px] font-bold text-green-400 uppercase tracking-widest leading-relaxed">
-                       * La IA usará estos valores para manejar objeciones de pago y cálculos automáticos en tiempo real.
+                       * La IA utiliza esta tabla oficial sincronizada en vivo con Google Sheets para cotizaciones de Boxes, Bauleras y Oficinas Virtuales.
                     </p>
                  </div>
               </div>

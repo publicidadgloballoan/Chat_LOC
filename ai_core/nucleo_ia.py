@@ -3745,7 +3745,15 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                     req_fields = ndata.get('required_fields', [])
                     if company_id == 3 or req_fields:
                         # Modo de captura completa de datos (Nombre, DNI, Email, Teléfono)
-                        has_name = bool(cur_name and cur_name != 'Cliente Nuevo' and not cur_name.startswith('549') and cur_name != 'Cliente IABox')
+                        def _is_real_name(n_val):
+                            if not n_val or not isinstance(n_val, str): return False
+                            nl = n_val.strip().lower()
+                            if nl in ['cliente nuevo', 'cliente iabox', 'cliente', 'usuario', 'candidato mkt']: return False
+                            if nl.startswith('549') or nl.startswith('+54') or len(nl) < 3: return False
+                            if any(inv in nl for inv in ['quiero', 'informac', 'hola', 'baulera', 'box', 'deposito', 'depósito', 'oficina']): return False
+                            return True
+
+                        has_name = _is_real_name(cur_name)
                         has_dni = False
                         has_email = False
                         try:
@@ -3755,7 +3763,7 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                             ag_r = c_chk.fetchone()
                             conn_chk.close()
                             if ag_r:
-                                if not has_name and ag_r[0] and ag_r[0] != 'Cliente Nuevo' and ag_r[0] != 'Cliente IABox':
+                                if not has_name and _is_real_name(ag_r[0]):
                                     has_name = True
                                     cur_name = ag_r[0]
                                 if ag_r[1]: has_dni = True
@@ -4761,7 +4769,12 @@ def webhook():
         c.execute("INSERT INTO processed_msgs (msg_id, instance) VALUES (?, ?)", (mid, inst))
 
         # Guardar en Agenda Global
-        name = msg_obj.get('pushName', 'Cliente Nuevo')
+        push_n = msg_obj.get('pushName') or ''
+        pn_l = push_n.strip().lower()
+        if not push_n or any(inv in pn_l for inv in ['quiero', 'informac', 'cliente', 'hola', 'baulera', 'box', 'deposito', 'depósito', 'oficina']):
+            name = 'Cliente Nuevo'
+        else:
+            name = push_n.strip()
         
         # Obtener company_id de la conexión para esta instancia
         c.execute("SELECT company_id FROM connections WHERE instance=?", (inst,))

@@ -3053,6 +3053,21 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
 
     def _send(target_jid, instance, message_text):
         try:
+            active_inst = instance if instance else 'mkt_colab'
+            inst_l = str(active_inst).lower()
+
+            # Auto-attach IA Box price image if response mentions prices/quotes/spaces
+            if ('iabox' in inst_l or 'virtual' in inst_l or company_id == 3) and any(kw in message_text.lower() for kw in ['$', 'precio', 'costo', 'baulera', 'box', 'tarifa', 'cotizac']):
+                if '__MULTIMEDIA__: precios_iabox_sep2026.jpeg' not in message_text:
+                    message_text = message_text.strip() + "\n\n__MULTIMEDIA__: precios_iabox_sep2026.jpeg"
+
+            media_files = []
+            pattern = r"__MULTIMEDIA__:\s*<?([^\n<>]+)>?"
+            for match in re.finditer(pattern, message_text):
+                media_files.append(match.group(1).strip())
+            
+            clean_message_text = re.sub(pattern, "", message_text).strip()
+
             clean_num = re.sub(r'\D', '', str(target_jid).split('@')[0])
             real_phone = re.sub(r'\D', '', str(phone).split('@')[0]) if phone else ""
             if real_phone.startswith('54') and not real_phone.startswith('549') and len(real_phone) == 12:
@@ -3069,9 +3084,7 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
             if target_number.endswith("@lid"):
                 target_number = f"{clean_num}@s.whatsapp.net"
 
-            active_inst = instance if instance else 'mkt_colab'
-
-            payload = {"number": target_number, "text": message_text, "delay": 1000}
+            payload = {"number": target_number, "text": clean_message_text, "delay": 1000}
             res = requests.post(
                 f"{EVO_URL}/message/sendText/{active_inst}", 
                 headers={"apikey": EVO_API_KEY}, 
@@ -3081,8 +3094,31 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
 
             logger.info(f" [_SEND WA] Enviado a {target_number} via {active_inst} (Status: {res.status_code})")
             try:
-                log_message(clean_num or phone, active_inst, message_text, "out", origin='BOT')
+                log_message(clean_num or phone, active_inst, clean_message_text, "out", origin='BOT')
             except: pass
+
+            # Send attached media files
+            for mfile in media_files:
+                mpath = None
+                try:
+                    mpath = _resolve_file(mfile)
+                except: pass
+                if not mpath or not os.path.exists(mpath):
+                    for check_p in [
+                        mfile,
+                        os.path.join(r"c:\SaaSIA\IABOX", mfile),
+                        os.path.join(r"c:\SaaSIA\IABOX\06_PROMOS", mfile),
+                        os.path.join(CONFIG_DIR, active_inst, "media", mfile),
+                        os.path.join(CONFIG_DIR, "company_3", "media", mfile)
+                    ]:
+                        if check_p and os.path.exists(check_p):
+                            mpath = check_p
+                            break
+                if mpath:
+                    _send_media(target_number, active_inst, mpath)
+                else:
+                    logger.warning(f" [_SEND WA MEDIA] No se encontro el archivo multimedia: {mfile}")
+
             return res
         except Exception as se:
             logger.error(f" [_SEND WA ERROR] Error al enviar a {target_jid}: {se}")
@@ -3322,7 +3358,14 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
                                 b_usd = f" | USD: {b.get('price_usd')}" if b.get('price_usd') else ""
                                 pricing_lines.append(f"- {b_name}{b_sec}{b_meas}{b_surf}{b_net}{b_promo}{b_usd}")
                         pricing_txt = "\n".join(pricing_lines)
-                        ia_prompt += f"\n\n--- CATÁLOGO OFICIAL DE PRECIOS Y DISPONIBILIDAD (LEER ESTRICTAMENTE) ---\n{pricing_txt}\n-----------------------------------\n"
+                        ia_prompt += f"\n\n--- CATÁLOGO OFICIAL DE PRECIOS Y DISPONIBILIDAD (LEER ESTRICTAMENTE) ---\n{pricing_txt}\n"
+                        if company_id == 3:
+                            ia_prompt += (
+                                "INSTRUCCIÓN MANDATORIA DE ADJUNCIÓN DE FOTO DE PRECIOS:\n"
+                                "SIEMPRE que la respuesta contenga precios, valores, tarifas, descuentos o cotizaciones de cualquier espacio (boxes, bauleras, oficina virtual), DEBES AGREGAR AL FINAL DE TU RESPUESTA EL COMANDO EXACTO PARA ADJUNTA LA FOTO DE PRECIOS:\n"
+                                "__MULTIMEDIA__: precios_iabox_sep2026.jpeg\n"
+                            )
+                        ia_prompt += "-----------------------------------\n"
             except Exception as pr_err:
                 logger.error(f"[INJECT-PRICING ERROR] {pr_err}")
 

@@ -3042,11 +3042,19 @@ def process_ia_async(jid, body, phone, inst_name, msg_data):
     def _send(target_jid, instance, message_text):
         try:
             clean_num = re.sub(r'\D', '', str(target_jid).split('@')[0])
+            real_phone = re.sub(r'\D', '', str(phone).split('@')[0]) if phone else ""
+            if real_phone.startswith('54') and not real_phone.startswith('549') and len(real_phone) == 12:
+                real_phone = '549' + real_phone[2:]
+
+            # If target_jid is an @lid or a Meta internal ID different from extracted real phone number, use real phone
+            if str(target_jid).endswith('@lid') or (real_phone and len(real_phone) >= 10 and real_phone != clean_num and (len(clean_num) > 13 or not clean_num.startswith('54'))):
+                clean_num = real_phone
+
             if clean_num.startswith('54') and not clean_num.startswith('549') and len(clean_num) == 12:
                 clean_num = '549' + clean_num[2:]
             
-            target_number = f"{clean_num}@s.whatsapp.net" if "@" not in str(target_jid) else str(target_jid)
-            if target_number.endswith("@lid") and clean_num and len(clean_num) >= 10:
+            target_number = f"{clean_num}@s.whatsapp.net" if "@" not in str(target_jid) or str(target_jid).endswith("@lid") else str(target_jid)
+            if target_number.endswith("@lid"):
                 target_number = f"{clean_num}@s.whatsapp.net"
 
             active_inst = instance if instance else 'mkt_colab'
@@ -4562,9 +4570,13 @@ def _send(jid, inst, text):
 
     try:
         if platform == "whatsapp":
+            target_num = str(jid)
+            if "@lid" in target_num:
+                clean_n = re.sub(r'\D', '', target_num.split('@')[0])
+                target_num = f"{clean_n}@s.whatsapp.net"
             r = requests.post(f"{target_url}/message/sendText/{inst}", 
                              headers={"apikey": EVO_API_KEY, "Content-Type": "application/json"}, 
-                             json={"number": jid, "text": text}, timeout=15)
+                             json={"number": target_num, "text": text}, timeout=15)
             # Fallback para números de Argentina (Bug Baileys 549 vs 54)
             if False:
                 jid_alt = "54" + jid[3:]

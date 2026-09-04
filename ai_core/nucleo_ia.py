@@ -4694,12 +4694,18 @@ def webhook():
         sender_pn = key_obj.get('senderPn', '') or key_obj.get('participant', '')
         if not jid or 'broadcast' in jid or jid.endswith('@g.us'): return "ignore group/broadcast", 200
         
-        if sender_pn and '@' in sender_pn:
-            phone = sender_pn.split('@')[0]
-        elif jid and '@' in jid:
-            phone = jid.split('@')[0]
+        clean_spn = re.sub(r'\D', '', str(sender_pn).split('@')[0]) if sender_pn else ""
+        clean_jid = re.sub(r'\D', '', str(jid).split('@')[0]) if jid else ""
+
+        if clean_spn and len(clean_spn) >= 10:
+            phone = clean_spn
+        elif clean_jid:
+            phone = clean_jid
         else:
-            phone = jid
+            phone = str(sender_pn or jid)
+
+        if phone.startswith('54') and not phone.startswith('549') and len(phone) == 12:
+            phone = '549' + phone[2:]
         
         # Dedup Persistente
         mid = msg_obj.get('key', {}).get('id')
